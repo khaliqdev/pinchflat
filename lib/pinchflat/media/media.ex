@@ -74,6 +74,38 @@ defmodule Pinchflat.Media do
 
   Returns boolean()
   """
+  @doc """
+  Sets `prevent_download` for the given media item ids in one query.
+  Optionally clears `last_error` when un-preventing.
+
+  Returns {count, nil}
+  """
+  def set_prevent_download_for(media_item_ids, prevent?) when is_list(media_item_ids) do
+    attrs = if prevent?, do: [prevent_download: true], else: [prevent_download: false, last_error: nil]
+
+    from(m in MediaItem, where: m.id in ^media_item_ids)
+    |> Repo.update_all(set: attrs)
+  end
+
+  @doc """
+  Deletes all pending (not downloaded, not prevented) media items for a source
+  without touching their (nonexistent) files. Useful for clearing out stuck or
+  uninteresting entries (upstream #724).
+
+  Returns {count, nil}
+  """
+  def delete_all_pending_for(%Source{} = source) do
+    source
+    |> list_pending_media_items_for()
+    |> Enum.reduce(0, fn media_item, acc ->
+      case delete_media_item(media_item, delete_files: false) do
+        {:ok, _} -> acc + 1
+        _ -> acc
+      end
+    end)
+    |> then(&{&1, nil})
+  end
+
   def pending_download?(%MediaItem{} = media_item) do
     media_item = Repo.preload(media_item, source: :media_profile)
 
@@ -103,6 +135,29 @@ defmodule Pinchflat.Media do
     |> Repo.maybe_limit(limit)
     |> Repo.all()
   end
+
+  @doc """
+  Lists media items that have a recorded error, most recently errored first.
+  Optionally scoped to one source. Used by the errors console (upstream #870).
+
+  Returns [%MediaItem{}, ...]
+  """
+  def list_errored_media_items(opts \\ []) do
+    source_id = Keyword.get(opts, :source_id)
+    limit = Keyword.get(opts, :limit, 100)
+
+    MediaQuery.new()
+    |> MediaQuery.require_assoc(:source)
+    |> where(^MediaQuery.errored())
+    |> apply_source_filter(source_id)
+    |> order_by([mi], desc: mi.updated_at, desc: mi.id)
+    |> limit(^limit)
+    |> preload(:source)
+    |> Repo.all()
+  end
+
+  defp apply_source_filter(query, nil), do: query
+  defp apply_source_filter(query, source_id), do: where(query, [mi], mi.source_id == ^source_id)
 
   @doc """
   Gets a single media_item.

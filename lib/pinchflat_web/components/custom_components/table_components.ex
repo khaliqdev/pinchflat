@@ -24,7 +24,7 @@ defmodule PinchflatWeb.CustomComponents.TableComponents do
     doc: "the function for mapping each row before calling the :col and :action slots"
 
   slot :col, required: true do
-    attr :label, :string
+    attr :label, :any
     attr :class, :string
     attr :sort_key, :string
   end

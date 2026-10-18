@@ -1,0 +1,43 @@
+<div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+  <h2 class="text-title-md2 font-bold text-black dark:text-white">Errors</h2>
+  <nav class="flex flex-wrap items-center gap-2">
+    <.link
+      href={~p"/errors"}
+      class={["rounded-md border px-3 py-1.5 text-sm font-medium", is_nil(@source_id) && "border-primary text-primary", !is_nil(@source_id) && "border-strokedark text-bodydark2 hover:text-bodydark1"]}
+    >
+      All sources
+    </.link>
+    <.link
+      :for={source <- @sources}
+      href={~p"/errors?source_id=#{source.id}"}
+      class={["rounded-md border px-3 py-1.5 text-sm font-medium", @source_id == source.id && "border-primary text-primary", @source_id != source.id && "border-strokedark text-bodydark2 hover:text-bodydark1"]}
+    >
+      {source.custom_name}
+    </.link>
+  </nav>
+</div>
+
+<div :if={Enum.empty?(@errors)} class="rounded-sm border border-stroke bg-white px-5 py-8 text-center shadow-default dark:border-strokedark dark:bg-boxdark">
+  <p class="text-bodydark2">No errors recorded. Long may it continue!</p>
+</div>
+
+<div class="flex flex-col gap-4">
+  <div :for={item <- @errors} class="rounded-sm border border-stroke bg-white px-5 py-4 shadow-default dark:border-strokedark dark:bg-boxdark">
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="shrink-0 rounded-md border border-red-500/20 bg-red-500/10 px-1.5 py-0.5 text-xs font-medium leading-4 text-red-400">
+        Failed
+      </span>
+      <.subtle_link href={~p"/sources/#{item.source_id}/media/#{item.id}"}>
+        {item.title}
+      </.subtle_link>
+      <span class="text-sm text-bodydark2">in</span>
+      <.subtle_link href={~p"/sources/#{item.source_id}"}>
+        {item.source.custom_name}
+      </.subtle_link>
+      <span class="ml-auto text-sm text-bodydark2">
+        {DateTime.to_date(item.updated_at)}
+      </span>
+    </div>
+    <pre class="mt-3 overflow-x-auto rounded-md border border-strokedark bg-meta-4 p-3 font-mono text-xs leading-5 text-bodydark1">{String.trim_trailing(item.last_error || "")}</pre>
+  </div>
+</div>

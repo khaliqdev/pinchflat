@@ -3,6 +3,7 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
   use Pinchflat.Media.MediaQuery
 
   alias Pinchflat.Repo
+  alias Pinchflat.Media
   alias Pinchflat.Sources
   alias Pinchflat.Utils.NumberUtils
 
@@ -45,7 +46,45 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
           </div>
         </div>
       </header>
+      <div
+        :if={MapSet.size(@selected_ids) > 0}
+        class="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-strokedark bg-boxdark px-4 py-2.5"
+      >
+        <span class="text-sm text-bodydark1">
+          <.localized_number number={MapSet.size(@selected_ids)} /> selected
+        </span>
+        <button
+          type="button"
+          phx-click="bulk_prevent"
+          class="rounded-md border border-strokedark px-3 py-1.5 text-sm font-medium text-bodydark1 hover:bg-meta-4"
+        >
+          Ignore
+        </button>
+        <button
+          type="button"
+          phx-click="bulk_allow"
+          class="rounded-md border border-strokedark px-3 py-1.5 text-sm font-medium text-bodydark1 hover:bg-meta-4"
+        >
+          Un-Ignore
+        </button>
+        <button
+          type="button"
+          phx-click="clear_selection"
+          class="ml-auto text-sm text-bodydark2 hover:text-bodydark1"
+        >
+          Clear selection
+        </button>
+      </div>
       <.table rows={@records} table_class="text-white">
+        <:col :let={media_item} label={Phoenix.HTML.raw(~s(<input type="checkbox" class="accent-primary" phx-click="toggle_select_all" phx-value-value="true" />))}>
+          <input
+            type="checkbox"
+            class="accent-primary"
+            checked={MapSet.member?(@selected_ids, media_item.id)}
+            phx-click="select_row"
+            phx-value-id={media_item.id}
+          />
+        </:col>
         <:col :let={media_item} label="Title" class="max-w-xs">
           <section class="flex items-center space-x-1">
             <.tooltip
@@ -61,6 +100,7 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
                 {media_item.title}
               </.subtle_link>
             </span>
+            <.status_badge media_item={media_item} />
           </section>
         </:col>
         <:col :let={media_item} :if={@media_state == "other"} label="Download Prevented?">
@@ -95,11 +135,38 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
         %{
           base_query: base_query,
           source: source,
-          media_state: media_state
+          media_state: media_state,
+          selected_ids: MapSet.new()
         }
       )
 
     {:ok, assign(socket, new_assigns)}
+  end
+
+  defp status_badge(assigns) do
+    assigns =
+      assign(
+        assigns,
+        :status,
+        cond do
+          assigns.media_item.last_error -> :failed
+          assigns.media_item.prevent_download -> :ignored
+          assigns.media_item.media_filepath -> :downloaded
+          true -> :pending
+        end
+      )
+
+    ~H"""
+    <span class={[
+      "shrink-0 rounded-md border px-1.5 py-0.5 text-xs font-medium leading-4",
+      @status == :downloaded && "border-emerald-500/20 bg-emerald-500/10 text-emerald-400",
+      @status == :failed && "border-red-500/20 bg-red-500/10 text-red-400",
+      @status == :ignored && "border-strokedark bg-meta-4 text-bodydark2",
+      @status == :pending && "border-amber-500/20 bg-amber-500/10 text-amber-400"
+    ]}>
+      {Atom.to_string(@status) |> String.capitalize()}
+    </span>
+    """
   end
 
   def handle_event("page_change", %{"direction" => direction}, %{assigns: assigns} = socket) do
@@ -108,6 +175,41 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
     new_assigns = fetch_pagination_attributes(assigns.base_query, new_page, assigns.search_term)
 
     {:noreply, assign(socket, new_assigns)}
+  end
+
+  def handle_event("select_row", %{"id" => id}, %{assigns: assigns} = socket) do
+    id = String.to_integer(id)
+    selected_ids = if MapSet.member?(assigns.selected_ids, id), do: MapSet.delete(assigns.selected_ids, id), else: MapSet.put(assigns.selected_ids, id)
+
+    {:noreply, assign(socket, selected_ids: selected_ids)}
+  end
+
+  def handle_event("toggle_select_all", %{"value" => "true"}, %{assigns: assigns} = socket) do
+    all_ids = MapSet.new(assigns.records, & &1.id)
+
+    {:noreply, assign(socket, selected_ids: all_ids)}
+  end
+
+  def handle_event("toggle_select_all", _params, socket) do
+    {:noreply, assign(socket, selected_ids: MapSet.new())}
+  end
+
+  def handle_event("clear_selection", _params, socket) do
+    {:noreply, assign(socket, selected_ids: MapSet.new())}
+  end
+
+  def handle_event("bulk_prevent", _params, %{assigns: assigns} = socket) do
+    Media.set_prevent_download_for(MapSet.to_list(assigns.selected_ids), true)
+    PinchflatWeb.Endpoint.broadcast("media_table", "reload", nil)
+
+    {:noreply, assign(socket, selected_ids: MapSet.new())}
+  end
+
+  def handle_event("bulk_allow", _params, %{assigns: assigns} = socket) do
+    Media.set_prevent_download_for(MapSet.to_list(assigns.selected_ids), false)
+    PinchflatWeb.Endpoint.broadcast("media_table", "reload", nil)
+
+    {:noreply, assign(socket, selected_ids: MapSet.new())}
   end
 
   def handle_event("search_term", params, socket) do
@@ -217,6 +319,6 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
 
   # Selecting only what we need GREATLY speeds up queries on large tables
   defp select_fields do
-    [:id, :title, :uploaded_at, :prevent_download, :last_error]
+    [:id, :title, :uploaded_at, :media_filepath, :members_only, :prevent_download, :last_error]
   end
 end

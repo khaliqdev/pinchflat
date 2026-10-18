@@ -407,6 +407,35 @@ defmodule Pinchflat.MediaTest do
     end
   end
 
+  describe "list_errored_media_items/1" do
+    test "returns only media items with errors, most recent first" do
+      errored_now = media_item_fixture(%{last_error: "boom now"})
+      errored_earlier = media_item_fixture(%{last_error: "boom earlier"})
+      _clean = media_item_fixture()
+
+      Repo.update_all(
+        from(m in MediaItem, where: m.id == ^errored_earlier.id),
+        set: [updated_at: DateTime.add(DateTime.utc_now(), -3600, :second)]
+      )
+
+      errored_earlier = Repo.reload!(errored_earlier)
+
+      assert [%{id: first_id}, %{id: second_id}] = Media.list_errored_media_items()
+      assert first_id == errored_now.id
+      assert second_id == errored_earlier.id
+    end
+
+    test "filters by source" do
+      source = source_fixture()
+      other_source = source_fixture()
+      _mine = media_item_fixture(%{source_id: source.id, last_error: "mine"})
+      _theirs = media_item_fixture(%{source_id: other_source.id, last_error: "theirs"})
+
+      assert [%MediaItem{} = item] = Media.list_errored_media_items(source_id: source.id)
+      assert item.source_id == source.id
+    end
+  end
+
   describe "pending_download?/1" do
     test "returns true when the media hasn't been downloaded" do
       media_item = media_item_fixture(%{media_filepath: nil})

@@ -82,6 +82,15 @@
   </:option>
   <:option>
     <.link
+      href={~p"/sources/#{@source}/delete_pending"}
+      method="post"
+      data-confirm="Are you sure you want to delete all pending media items for this source? They will be re-added if new content is still being indexed. This cannot be undone."
+    >
+      Delete All Pending
+    </.link>
+  </:option>
+  <:option>
+    <.link
       href={~p"/sources/#{@source}"}
       method="delete"
       data-confirm="Are you sure you want to delete this source (leaving files in place)? This cannot be undone."

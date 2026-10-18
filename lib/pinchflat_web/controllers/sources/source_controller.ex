@@ -7,6 +7,7 @@ defmodule PinchflatWeb.Sources.SourceController do
   alias Pinchflat.Sources
   alias Pinchflat.Sources.Source
   alias Pinchflat.Profiles.MediaProfile
+  alias Pinchflat.Media
   alias Pinchflat.Media.FileSyncingWorker
   alias Pinchflat.Sources.SourceDeletionWorker
   alias Pinchflat.Downloading.DownloadingHelpers
@@ -72,6 +73,15 @@ defmodule PinchflatWeb.Sources.SourceController do
 
     conn
     |> put_flash(:info, "Indexing started - new videos will appear shortly")
+    |> redirect(to: ~p"/sources/#{source}")
+  end
+
+  def delete_pending(conn, %{"id" => id}) do
+    source = Sources.get_source!(id)
+    {count, _} = Media.delete_all_pending_for(source)
+
+    conn
+    |> put_flash(:info, "Deleted #{count} pending media item(s)")
     |> redirect(to: ~p"/sources/#{source}")
   end
 

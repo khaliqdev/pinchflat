@@ -51,7 +51,10 @@ defmodule PinchflatWeb.Router do
     get "/app_info", Settings.SettingController, :app_info
     get "/download_logs", Settings.SettingController, :download_logs
 
+    get "/errors", MediaErrors.MediaErrorController, :index
+
     post "/sources/:id/check_now", Sources.SourceController, :check_now
+    post "/sources/:id/delete_pending", Sources.SourceController, :delete_pending
 
     resources "/sources", Sources.SourceController do
       post "/force_download_pending", Sources.SourceController, :force_download_pending
