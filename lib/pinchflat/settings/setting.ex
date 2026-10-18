@@ -20,7 +20,8 @@ defmodule Pinchflat.Settings.Setting do
     :restrict_filenames,
     :external_delete_behaviour,
     :failure_notifications,
-    :failure_digest_cursor
+    :failure_digest_cursor,
+    :default_theme
   ]
 
   @required_fields [
@@ -48,6 +49,8 @@ defmodule Pinchflat.Settings.Setting do
     # Opt-in nightly-ish digest of new download failures via apprise
     field :failure_notifications, :boolean, default: false
     field :failure_digest_cursor, :utc_datetime
+    # Server-wide default theme; individual browsers may override via the nav toggle
+    field :default_theme, :string, default: "dark"
 
     field :video_codec_preference, :string
     field :audio_codec_preference, :string

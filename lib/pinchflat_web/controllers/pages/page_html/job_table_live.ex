@@ -17,7 +17,7 @@ defmodule Pinchflat.Pages.JobTableLive do
   def render(assigns) do
     ~H"""
     <div class="max-w-full overflow-x-auto">
-      <.table rows={@tasks} table_class="text-white">
+      <.table rows={@tasks} >
         <:col :let={task} label="Task">
           {worker_to_task_name(task.job.worker)}
         </:col>

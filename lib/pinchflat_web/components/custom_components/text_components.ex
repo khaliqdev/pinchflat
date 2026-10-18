@@ -12,7 +12,7 @@ defmodule PinchflatWeb.CustomComponents.TextComponents do
 
   def inline_code(assigns) do
     ~H"""
-    <code class="inline-block text-sm font-mono text-gray bg-boxdark rounded-md p-0.5 mx-0.5 text-nowrap">
+    <code class="inline-block text-sm font-mono text-gray bg-gray-2 dark:bg-boxdark rounded-md p-0.5 mx-0.5 text-nowrap">
       {render_slot(@inner_block)}
     </code>
     """

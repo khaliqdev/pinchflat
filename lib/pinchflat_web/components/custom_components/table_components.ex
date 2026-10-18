@@ -31,12 +31,12 @@ defmodule PinchflatWeb.CustomComponents.TableComponents do
 
   def table(assigns) do
     ~H"""
-    <table class={["w-full table-auto bg-boxdark", @table_class]}>
+    <table class={["w-full table-auto bg-white dark:bg-boxdark text-body dark:text-white", @table_class]}>
       <thead>
-        <tr class="text-left bg-meta-4">
+        <tr class="text-left bg-gray-2 dark:bg-meta-4">
           <th
             :for={col <- @col}
-            class={["px-4 py-4 font-medium text-white", col[:sort_key] && "cursor-pointer"]}
+            class={["px-4 py-4 font-medium text-black dark:text-white", col[:sort_key] && "cursor-pointer"]}
             phx-click={col[:sort_key] && "sort_update"}
             phx-value-sort_key={col[:sort_key]}
           >
@@ -52,7 +52,7 @@ defmodule PinchflatWeb.CustomComponents.TableComponents do
         </tr>
       </thead>
       <tbody>
-        <tr :for={row <- @rows} class="hover:bg-strokedark">
+        <tr :for={row <- @rows} class="hover:bg-gray-3 dark:hover:bg-strokedark">
           <td
             :for={col <- @col}
             class={[

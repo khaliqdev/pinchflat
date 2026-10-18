@@ -28,7 +28,7 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
             Showing <.localized_number number={length(@records)} /> of <.localized_number number={@filtered_record_count} />
           </span>
         </span>
-        <div class="bg-meta-4 rounded-md">
+        <div class="bg-gray-2 dark:bg-meta-4 rounded-md">
           <div class="relative">
             <span class="absolute left-2 top-1/2 -translate-y-1/2 flex">
               <.icon name="hero-magnifying-glass" />
@@ -48,7 +48,7 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
       </header>
       <div
         :if={MapSet.size(@selected_ids) > 0}
-        class="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-strokedark bg-boxdark px-4 py-2.5"
+        class="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-stroke dark:border-strokedark bg-white dark:bg-boxdark px-4 py-2.5"
       >
         <span class="text-sm text-bodydark1">
           <.localized_number number={MapSet.size(@selected_ids)} /> selected
@@ -75,7 +75,7 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
           Clear selection
         </button>
       </div>
-      <.table rows={@records} table_class="text-white">
+      <.table rows={@records} >
         <:col :let={media_item} label={Phoenix.HTML.raw(~s(<input type="checkbox" class="accent-primary" phx-click="toggle_select_all" phx-value-value="true" />))}>
           <input
             type="checkbox"
@@ -399,7 +399,7 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
       src={@src}
       alt=""
       loading="lazy"
-      class="h-9 w-16 shrink-0 rounded-md border border-strokedark object-cover"
+      class="h-9 w-16 shrink-0 rounded-md border border-stroke dark:border-strokedark object-cover"
       onerror="this.classList.add('hidden')"
     />
     """

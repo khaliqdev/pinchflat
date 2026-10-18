@@ -29,3 +29,14 @@
     scrollbar-width: none; /* Firefox */
   }
 }
+
+/* Theme classes are applied to <html> before first paint (see root layout).
+   Light is the absence of the Tailwind `dark` class; `theme-dark/theme-light`
+   exist so the pre-phx body can be styled without a flash. */
+html.theme-dark body {
+  @apply bg-boxdark-2;
+}
+
+html.theme-light body {
+  @apply bg-whiten;
+}

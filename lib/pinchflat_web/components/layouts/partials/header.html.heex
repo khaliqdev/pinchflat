@@ -34,6 +34,23 @@
         </div>
       </div>
 
+      <button
+        type="button"
+        x-data
+        @click="(() => {
+          const dark = document.documentElement.classList.toggle('dark');
+          document.documentElement.classList.toggle('theme-dark', dark);
+          document.documentElement.classList.toggle('theme-light', !dark);
+          try { localStorage.setItem('re-theme', dark ? 'dark' : 'light'); } catch (e) {}
+        })()"
+        class="rounded-md border border-stroke p-2 text-bodydark2 dark:border-strokedark hover:text-bodydark1"
+        aria-label="Toggle theme"
+        title="Toggle dark/light theme"
+      >
+        <.icon name="hero-sun" class="hidden h-5 w-5 dark:block" />
+        <.icon name="hero-moon" class="h-5 w-5 dark:hidden" />
+      </button>
+
       {live_render(@conn, Pinchflat.Pages.StatusChipsLive, id: "status-chips")}
     </div>
   </div>

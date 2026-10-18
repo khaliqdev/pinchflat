@@ -27,6 +27,22 @@
   </section>
 
   <section class="mt-8">
+    <h3 class="text-lg font-medium text-black dark:text-white">Preferences</h3>
+
+    <.input
+      field={f[:default_theme]}
+      options={[
+        {"Dark", "dark"},
+        {"Light", "light"},
+        {"Follow system", "system"}
+      ]}
+      type="select"
+      label="Default theme"
+      help="The theme applied for new browsers. The sun/moon toggle in the top nav overrides this per browser"
+    />
+  </section>
+
+  <section class="mt-8">
     <section>
       <h3 class="text-2xl text-black dark:text-white">
         Extractor Settings

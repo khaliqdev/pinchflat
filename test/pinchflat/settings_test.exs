@@ -93,4 +93,13 @@ defmodule Pinchflat.SettingsTest do
       assert %Ecto.Changeset{valid?: true} = Settings.change_setting(setting, %{extractor_sleep_interval_seconds: 0})
     end
   end
+  describe "default_theme" do
+    test "is persisted through Settings.set/1 and defaults to dark" do
+      assert {:ok, "dark"} = Settings.get(:default_theme)
+
+      assert {:ok, "light"} = Settings.set(default_theme: "light")
+      assert {:ok, "light"} = Settings.get(:default_theme)
+    end
+  end
+
 end

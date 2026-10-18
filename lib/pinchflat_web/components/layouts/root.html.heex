@@ -7,6 +7,20 @@
     <.live_title>
       {assigns[:page_title] || "re:Pinchflat"}
     </.live_title>
+    <script>
+      // Applies the effective theme before first paint to avoid a flash.
+      // Priority: per-browser toggle (localStorage) > server default > system.
+      (function () {
+        var serverDefault = "<%= Settings.get!(:default_theme) %>";
+        var stored = null;
+        try { stored = localStorage.getItem("re-theme"); } catch (e) {}
+        var mode = stored || serverDefault || "dark";
+        var dark = mode === "dark" || (mode !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+        window.__reThemeIsDark = dark;
+        document.documentElement.classList.add(dark ? "theme-dark" : "theme-light");
+        document.documentElement.classList.toggle("dark", dark);
+      })();
+    </script>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
     <link rel="icon" type="image/svg+xml" href={~p"/images/re-pinchflat-icon.svg"} />
     <link rel="icon" type="image/png" sizes="32x32" href={~p"/images/re-pinchflat-icon-32.png"} />
@@ -20,7 +34,7 @@
       proEnabled: #{Settings.get!(:pro_enabled)},
       onboarding: #{Settings.get!(:onboarding)}
     }"}
-    class="dark text-bodydark bg-boxdark-2"
+    class="text-bodydark"
     data-socket-path={Path.join(Application.get_env(:pinchflat, :base_route_path), "/live")}
   >
     <div class="mx-auto w-full max-w-screen-2xl px-4 pt-4 md:px-6 md:pt-6">
