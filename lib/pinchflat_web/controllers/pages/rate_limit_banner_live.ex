@@ -15,15 +15,14 @@ defmodule Pinchflat.Pages.RateLimitBannerLive do
 
   def render(assigns) do
     ~H"""
-    <div
-      :if={@until}
-      class="mb-4 flex items-center gap-2 rounded-md border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-amber-400"
-    >
-      <.icon name="hero-clock" class="h-5 w-5" />
-      <span>
-        YouTube rate limit active - yt-dlp work is paused until {format_time(@until)} to
-        avoid deepening the block.
-      </span>
+    <div :if={@until} class="mx-auto w-full max-w-screen-2xl px-4 pt-4 md:px-6 md:pt-6">
+      <div class="flex items-center gap-2 rounded-md border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-amber-400">
+        <.icon name="hero-clock" class="h-5 w-5" />
+        <span>
+          YouTube rate limit active - yt-dlp work is paused until {format_time(@until)} to
+          avoid deepening the block.
+        </span>
+      </div>
     </div>
     """
   end

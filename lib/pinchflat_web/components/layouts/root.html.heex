@@ -37,9 +37,7 @@
     class="text-bodydark"
     data-socket-path={Path.join(Application.get_env(:pinchflat, :base_route_path), "/live")}
   >
-    <div class="mx-auto w-full max-w-screen-2xl px-4 pt-4 md:px-6 md:pt-6">
-      {live_render(@conn, Pinchflat.Pages.RateLimitBannerLive, id: "rate-limit-banner")}
-    </div>
+    {live_render(@conn, Pinchflat.Pages.RateLimitBannerLive, id: "rate-limit-banner")}
 
     {@inner_content}
 
