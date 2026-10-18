@@ -18,10 +18,8 @@ defmodule Pinchflat.Downloading.QualityOptionBuilder do
     acodec = Settings.get!(:audio_codec_preference)
 
     [
-      :extract_audio,
-      format_sort: "+acodec:#{acodec}",
-      audio_format: container || "best",
-      format: build_format_string(media_profile)
+      :extract_audio
+      | audio_format_options(container, acodec, media_profile)
     ]
   end
 
@@ -33,9 +31,41 @@ defmodule Pinchflat.Downloading.QualityOptionBuilder do
     [
       # Since Plex doesn't support reading metadata from MKV
       remux_video: container || "mp4",
-      format_sort: "res:#{resolution_string},+codec:#{vcodec}:#{acodec}",
+      format_sort: build_video_format_sort(resolution_string, vcodec, acodec),
       format: build_format_string(media_profile)
     ]
+  end
+
+  # Blank codec preferences are omitted so a user's custom yt-dlp config can
+  # control format selection (upstream #845)
+  defp audio_format_options(container, acodec, media_profile) do
+    base = [audio_format: container || "best", format: build_format_string(media_profile)]
+
+    if blank_codec?(acodec) do
+      base
+    else
+      [format_sort: "+acodec:#{acodec}"] ++ base
+    end
+  end
+
+  defp build_video_format_sort(resolution_string, vcodec, acodec) do
+    case {blank_codec?(vcodec), blank_codec?(acodec)} do
+      {true, true} -> "res:#{resolution_string}"
+      {false, true} -> "res:#{resolution_string},+vcodec:#{vcodec}"
+      {true, false} -> "res:#{resolution_string},+acodec:#{acodec}"
+      {false, false} -> "res:#{resolution_string},+codec:#{vcodec}:#{acodec}"
+    end
+  end
+
+  # "none" (or blank) means "no preference" so a user's custom yt-dlp config
+  # can control format selection (upstream #845). The settings columns are
+  # NOT NULL, hence the sentinel string.
+  defp blank_codec?(nil), do: true
+
+  defp blank_codec?(codec) do
+    trimmed = codec |> to_string() |> String.trim()
+
+    trimmed == "" || String.downcase(trimmed) == "none"
   end
 
   defp build_format_string(%MediaProfile{preferred_resolution: :audio, audio_track: audio_track}) do

@@ -32,6 +32,41 @@ defmodule Pinchflat.Downloading.QualityOptionBuilderTest do
     end
   end
 
+  describe "build/1 when codec preferences are set to none" do
+    setup do
+      Settings.set(video_codec_preference: "none")
+      Settings.set(audio_codec_preference: "none")
+
+      :ok
+    end
+
+    test "omits format_sort entirely for audio profiles" do
+      media_profile = media_profile_fixture(%{preferred_resolution: :audio})
+      res = QualityOptionBuilder.build(media_profile)
+
+      refute Enum.any?(res, fn opt -> match?({:format_sort, _}, opt) end)
+      assert :extract_audio in res
+    end
+
+    test "keeps only resolution sorting for video profiles" do
+      media_profile = media_profile_fixture(%{preferred_resolution: :"1080p"})
+      res = QualityOptionBuilder.build(media_profile)
+
+      assert {:format_sort, "res:1080"} in res
+      refute {:format_sort, "res:1080,+codec::"} in res
+    end
+
+    test "uses individual codec sorting when only one codec preference is set" do
+      Settings.set(video_codec_preference: "none")
+      Settings.set(audio_codec_preference: "opus")
+
+      media_profile = media_profile_fixture(%{preferred_resolution: :"1080p"})
+      res = QualityOptionBuilder.build(media_profile)
+
+      assert {:format_sort, "res:1080,+acodec:opus"} in res
+    end
+  end
+
   describe "build/1 when testing audio profiles" do
     setup do
       {:ok, media_profile: media_profile_fixture(%{preferred_resolution: :audio})}

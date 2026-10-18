@@ -132,7 +132,8 @@ defmodule Pinchflat.Media.MediaQuery do
         ^upload_date_after_source_cutoff() and
         ^format_matching_profile_preference() and
         ^matches_source_title_regex() and
-        ^meets_min_and_max_duration()
+        ^meets_min_and_max_duration() and
+        fragment("(members_only_behaviour != 'exclude' OR members_only = false)")
     )
   end
 

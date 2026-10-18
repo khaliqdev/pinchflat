@@ -209,6 +209,16 @@
       />
     </section>
 
+    <section>
+      <.input
+        field={f[:members_only_behaviour]}
+        options={[{"Include", :include}, {"Exclude", :exclude}]}
+        type="select"
+        label="Include Members-Only Videos"
+        help="How to handle members-only content"
+      />
+    </section>
+
     <h3 class="mt-10 text-2xl text-black dark:text-white">
       Quality Options
     </h3>

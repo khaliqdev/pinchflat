@@ -63,6 +63,17 @@
         label="Restrict Filenames"
         help="Restrict filenames to only ASCII characters and avoid ampersands/spaces in filenames"
       />
+
+      <.input
+        field={f[:external_delete_behaviour]}
+        options={[
+          {"Prevent re-download", "prevent_download"},
+          {"Re-download (upstream behavior)", "re_download"}
+        ]}
+        type="select"
+        label="When a media file is deleted outside Pinchflat"
+        help="Prevent re-download marks the item as prevented; re-download restores the file on the next indexing run"
+      />
     </section>
   </section>
 
@@ -73,7 +84,8 @@
       </h3>
 
       <p class="text-sm mt-2 max-w-prose">
-        The best available codec will be used if your preferred codecs are not found
+        The best available codec will be used if your preferred codecs are not found.
+        Set either to `none` to let a custom yt-dlp config file fully control format selection
       </p>
 
       <.input

@@ -55,6 +55,9 @@ yt_dlp_auto_update = System.get_env("YT_DLP_AUTO_UPDATE", "nightly")
 
 config :pinchflat, yt_dlp_auto_update: yt_dlp_auto_update
 
+{oban_pruner_days, _} = Integer.parse(System.get_env("OBAN_PRUNER_MAX_AGE_DAYS", "30"))
+oban_pruner_max_age_ms = oban_pruner_days * 24 * 60 * 60 * 1000
+
 # The nightly cron only applies to "nightly" mode; "boot" updates on boot only
 yt_dlp_update_crontab =
   if yt_dlp_auto_update == "nightly" do
@@ -73,14 +76,16 @@ config :pinchflat, Oban,
     local_data: 8
   ],
   plugins: [
-    # Keep old jobs for 30 days for display in the UI
-    {Oban.Plugins.Pruner, max_age: 30 * 24 * 60 * 60},
+    # Keep old jobs for display in the UI (env-tunable; the oban_jobs table is
+    # the main source of unconstrained database growth — upstream #887)
+    {Oban.Plugins.Pruner, max_age: oban_pruner_max_age_ms},
     {Oban.Plugins.Cron,
      crontab:
        yt_dlp_update_crontab ++
          [
            {"0 1 * * *", Pinchflat.Downloading.MediaRetentionWorker},
-           {"0 2 * * *", Pinchflat.Downloading.MediaQualityUpgradeWorker}
+           {"0 2 * * *", Pinchflat.Downloading.MediaQualityUpgradeWorker},
+           {"30 3 * * *", Pinchflat.Database.DatabaseMaintenanceWorker}
          ]}
   ]
 
@@ -122,9 +127,19 @@ if config_env() == :prod do
 
   config :tzdata, :data_dir, tz_data_path
 
+  {db_pool_size, _} = Integer.parse(System.get_env("DB_POOL_SIZE", "10"))
+  {db_busy_timeout_ms, _} = Integer.parse(System.get_env("DB_BUSY_TIMEOUT_MS", "30000"))
+
   config :pinchflat, Pinchflat.Repo,
     database: db_path,
-    journal_mode: journal_mode
+    journal_mode: journal_mode,
+    pool_size: db_pool_size,
+    # Wait up to 30s for a locked database instead of erroring immediately,
+    # and wait longer for a pool connection instead of raising under load
+    # (upstream #832, #873, #903)
+    busy_timeout: db_busy_timeout_ms,
+    queue_target: 15_000,
+    queue_interval: 45_000
 
   config :pinchflat, Pinchflat.PromEx, disabled: !enable_prometheus
 

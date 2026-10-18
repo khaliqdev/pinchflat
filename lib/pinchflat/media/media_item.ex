@@ -26,6 +26,7 @@ defmodule Pinchflat.Media.MediaItem do
     :description,
     :original_url,
     :livestream,
+    :members_only,
     :source_id,
     :short_form_content,
     :uploaded_at,
@@ -70,6 +71,7 @@ defmodule Pinchflat.Media.MediaItem do
     field :description, :string
     field :original_url, :string
     field :livestream, :boolean, default: false
+    field :members_only, :boolean, default: false
     field :short_form_content, :boolean, default: false
     field :media_downloaded_at, :utc_datetime
     field :media_redownloaded_at, :utc_datetime

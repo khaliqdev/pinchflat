@@ -1,8 +1,11 @@
 defmodule Pinchflat.Media.FileSyncing do
+  require Logger
+
   @moduledoc """
   Functions for ensuring file state is accurately reflected in the database.
   """
 
+  alias Pinchflat.Settings
   alias Pinchflat.Media
   alias Pinchflat.Utils.MapUtils
   alias Pinchflat.Media.MediaItem
@@ -42,13 +45,31 @@ defmodule Pinchflat.Media.FileSyncing do
   """
   def sync_file_presence_on_disk(media_items) do
     Enum.map(media_items, fn media_item ->
-      new_attributes = sync_media_item_files(media_item)
+      new_attributes = maybe_prevent_external_delete(media_item, sync_media_item_files(media_item))
       # Doing this one-by-one instead of batching since this process
       # can take time and a batch could let MediaItem state get out of sync
       {:ok, updated_media_item} = Media.update_media_item(media_item, new_attributes)
 
       updated_media_item
     end)
+  end
+
+  # When the media file was deleted outside the app, optionally prevent the
+  # item from being re-downloaded on the next indexing run (upstream #805)
+  defp maybe_prevent_external_delete(media_item, new_attributes) do
+    externally_deleted? =
+      Map.has_key?(new_attributes, :media_filepath) && media_item.media_filepath not in [nil, ""]
+
+    if externally_deleted? && Settings.get!(:external_delete_behaviour) == "prevent_download" do
+      Logger.warning("Media item ##{media_item.id}'s file was deleted outside Pinchflat - preventing re-download")
+
+      Map.merge(new_attributes, %{
+        prevent_download: true,
+        last_error: "Media file was deleted outside Pinchflat - re-download prevented (change this in settings)"
+      })
+    else
+      new_attributes
+    end
   end
 
   defp handle_file_deletion(old_attributes, new_attributes) do

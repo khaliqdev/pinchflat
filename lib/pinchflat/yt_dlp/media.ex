@@ -21,6 +21,7 @@ defmodule Pinchflat.YtDlp.Media do
     :description,
     :original_url,
     :livestream,
+    :members_only,
     :short_form_content,
     :uploaded_at,
     :duration_seconds,
@@ -115,7 +116,7 @@ defmodule Pinchflat.YtDlp.Media do
         if something is a short via the URL again
   """
   def indexing_output_template do
-    "%(.{id,title,live_status,original_url,description,aspect_ratio,duration,upload_date,timestamp,playlist_index,filename})j"
+    "%(.{id,title,live_status,availability,original_url,description,aspect_ratio,duration,upload_date,timestamp,playlist_index,filename})j"
   end
 
   @doc """
@@ -131,6 +132,7 @@ defmodule Pinchflat.YtDlp.Media do
       description: response["description"],
       original_url: response["original_url"],
       livestream: !!response["live_status"] && response["live_status"] != "not_live",
+      members_only: response["availability"] == "subscriber_only",
       duration_seconds: response["duration"] && round(response["duration"]),
       short_form_content: response["original_url"] && short_form_content?(response),
       uploaded_at: response["upload_date"] && parse_uploaded_at(response),

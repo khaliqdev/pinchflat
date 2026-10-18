@@ -216,7 +216,7 @@ defmodule Pinchflat.YtDlp.MediaTest do
   describe "indexing_output_template/0" do
     test "contains all the greatest hits" do
       attrs =
-        ~w(id title live_status original_url description aspect_ratio duration upload_date timestamp playlist_index filename)a
+        ~w(id title live_status availability original_url description aspect_ratio duration upload_date timestamp playlist_index filename)a
 
       formatted_attrs = "%(.{#{Enum.join(attrs, ",")}})j"
 
@@ -225,6 +225,25 @@ defmodule Pinchflat.YtDlp.MediaTest do
   end
 
   describe "response_to_struct/1" do
+    test "marks media as members-only when availability is subscriber_only" do
+      response = %{
+        "id" => "abc123",
+        "title" => "Members Only",
+        "description" => "desc",
+        "original_url" => "https://www.youtube.com/watch?v=abc123",
+        "live_status" => "not_live",
+        "availability" => "subscriber_only",
+        "aspect_ratio" => 1.0,
+        "duration" => 60,
+        "upload_date" => "20210101",
+        "timestamp" => 1_600_000_000,
+        "playlist_index" => 1,
+        "filename" => "abc123.mp4"
+      }
+
+      assert %{members_only: true} = Media.response_to_struct(response)
+    end
+
     test "transforms a response into a struct" do
       response = %{
         "id" => "TiZPUDkDYbk",
@@ -232,6 +251,7 @@ defmodule Pinchflat.YtDlp.MediaTest do
         "description" => "I'm not sure what I expected.",
         "original_url" => "https://www.youtube.com/watch?v=TiZPUDkDYbk",
         "live_status" => "not_live",
+        "availability" => "public",
         "aspect_ratio" => 1.0,
         "duration" => 60,
         "upload_date" => "20210101",
@@ -246,6 +266,7 @@ defmodule Pinchflat.YtDlp.MediaTest do
                description: "I'm not sure what I expected.",
                original_url: "https://www.youtube.com/watch?v=TiZPUDkDYbk",
                livestream: false,
+               members_only: false,
                short_form_content: false,
                uploaded_at: ~U[2020-09-13 12:26:40Z],
                duration_seconds: 60,

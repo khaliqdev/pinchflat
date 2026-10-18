@@ -5,6 +5,7 @@ defmodule Pinchflat.YtDlp.CommandRunner do
 
   require Logger
 
+  alias Pinchflat.RateLimit
   alias Pinchflat.Settings
   alias Pinchflat.Utils.CliUtils
   alias Pinchflat.Utils.NumberUtils
@@ -31,6 +32,8 @@ defmodule Pinchflat.YtDlp.CommandRunner do
   """
   @impl YtDlpCommandRunner
   def run(url, action_name, command_opts, output_template, addl_opts \\ []) do
+    throttle_if_rate_limited!(addl_opts)
+
     Logger.debug("Running yt-dlp command for action: #{action_name}")
 
     output_filepath = generate_output_filepath(addl_opts)
@@ -54,6 +57,8 @@ defmodule Pinchflat.YtDlp.CommandRunner do
         File.read(output_filepath)
 
       {output, status} ->
+        maybe_trip_rate_limit(output)
+
         {:error, output, status}
     end
   end
@@ -94,6 +99,23 @@ defmodule Pinchflat.YtDlp.CommandRunner do
       {output, _} ->
         {:error, output}
     end
+  end
+
+  # If YouTube has flagged us (HTTP 429 anywhere in yt-dlp output), trip a global
+  # cooldown so subsequent yt-dlp work waits instead of deepening the block.
+  # UI-blocking commands (skip_sleep_interval) never wait.
+  defp throttle_if_rate_limited!(addl_opts) do
+    if RateLimit.tripped?() && !Keyword.get(addl_opts, :skip_sleep_interval, false) do
+      seconds = RateLimit.seconds_remaining()
+
+      Logger.warning("Rate limit cooldown active - delaying yt-dlp command by #{seconds}s")
+
+      Process.sleep(seconds * 1000)
+    end
+  end
+
+  defp maybe_trip_rate_limit(output) do
+    if String.contains?(to_string(output), "HTTP Error 429"), do: RateLimit.trip!()
   end
 
   defp generate_output_filepath(addl_opts) do

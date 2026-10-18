@@ -65,6 +65,16 @@ defmodule PinchflatWeb.Sources.SourceController do
     end
   end
 
+  def check_now(conn, %{"id" => id}) do
+    source = Sources.get_source!(id)
+
+    SlowIndexingHelpers.kickoff_indexing_task(source, %{force: true})
+
+    conn
+    |> put_flash(:info, "Indexing started - new videos will appear shortly")
+    |> redirect(to: ~p"/sources/#{source}")
+  end
+
   def show(conn, %{"id" => id}) do
     source = Repo.preload(Sources.get_source!(id), :media_profile)
 

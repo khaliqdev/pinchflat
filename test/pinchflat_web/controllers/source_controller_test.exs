@@ -12,6 +12,7 @@ defmodule PinchflatWeb.SourceControllerTest do
   alias Pinchflat.Downloading.MediaDownloadWorker
   alias Pinchflat.Metadata.SourceMetadataStorageWorker
   alias Pinchflat.SlowIndexing.MediaCollectionIndexingWorker
+  alias Pinchflat.Sources.Source
 
   setup do
     media_profile = media_profile_fixture()
@@ -287,4 +288,23 @@ defmodule PinchflatWeb.SourceControllerTest do
       })
     }
   end
+  describe "check_now/2" do
+    test "kicks off a forced indexing job and redirects back to the source", %{conn: conn} do
+      source = source_fixture()
+
+      conn = post(conn, ~p"/sources/#{source.id}/check_now")
+
+      assert redirected_to(conn) == "/sources/#{source.id}"
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Indexing started"
+
+      assert_enqueued worker: MediaCollectionIndexingWorker, args: %{"force" => true, "id" => source.id}
+    end
+
+    test "404s when the source does not exist", %{conn: conn} do
+      assert_raise Ecto.NoResultsError, fn ->
+        post(conn, ~p"/sources/99999999/check_now")
+      end
+    end
+  end
+
 end

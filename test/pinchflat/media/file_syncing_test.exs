@@ -4,6 +4,7 @@ defmodule Pinchflat.Media.FileSyncingTest do
   import Pinchflat.MediaFixtures
 
   alias Pinchflat.Media.FileSyncing
+  alias Pinchflat.Settings
 
   describe "delete_outdated_files/2" do
     test "deletes outdated non-subtitle files" do
@@ -62,6 +63,38 @@ defmodule Pinchflat.Media.FileSyncingTest do
       assert :ok = FileSyncing.delete_outdated_files(old_media_item, new_media_item)
 
       assert File.exists?(get_subtitle_filepath(old_media_item, "en"))
+    end
+  end
+
+  describe "sync_file_presence_on_disk/1 when a media file was deleted externally" do
+    setup do
+      Settings.set(external_delete_behaviour: "prevent_download")
+      on_exit(fn -> Settings.set(external_delete_behaviour: "re_download") end)
+
+      :ok
+    end
+
+    test "prevents re-download and records why by default" do
+      media_item = media_item_with_attachments()
+      File.rm(media_item.media_filepath)
+
+      assert [media_item] = FileSyncing.sync_file_presence_on_disk([media_item])
+
+      assert is_nil(media_item.media_filepath)
+      assert media_item.prevent_download
+      assert media_item.last_error =~ "deleted outside Pinchflat"
+    end
+
+    test "re-downloads (current upstream behavior) when configured" do
+      Settings.set(external_delete_behaviour: "re_download")
+
+      media_item = media_item_with_attachments()
+      File.rm(media_item.media_filepath)
+
+      assert [media_item] = FileSyncing.sync_file_presence_on_disk([media_item])
+
+      assert is_nil(media_item.media_filepath)
+      refute media_item.prevent_download
     end
   end
 
