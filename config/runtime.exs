@@ -55,11 +55,12 @@ yt_dlp_auto_update = System.get_env("YT_DLP_AUTO_UPDATE", "nightly")
 
 config :pinchflat, yt_dlp_auto_update: yt_dlp_auto_update
 
+# The nightly cron only applies to "nightly" mode; "boot" updates on boot only
 yt_dlp_update_crontab =
-  if yt_dlp_auto_update == "off" do
-    []
-  else
+  if yt_dlp_auto_update == "nightly" do
     [{"#{current_minute} #{current_hour} * * *", Pinchflat.YtDlp.UpdateWorker}]
+  else
+    []
   end
 
 config :pinchflat, Oban,
