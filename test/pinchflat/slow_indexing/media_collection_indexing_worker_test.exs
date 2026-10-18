@@ -57,6 +57,20 @@ defmodule Pinchflat.SlowIndexing.MediaCollectionIndexingWorkerTest do
       :ok
     end
 
+    test "survives a backend failure and still reschedules itself" do
+      # yt-dlp fails on the collection fetch - previously this raised and burned
+      # the whole retry chain without ever rescheduling
+      expect(YtDlpRunnerMock, :run, fn _url, :get_media_attributes_for_collection, _opts, _ot, _addl_opts ->
+        {:error, "ERROR: HTTP Error 429", 1}
+      end)
+
+      source = source_fixture(%{index_frequency_minutes: 60})
+
+      assert {:error, _} = perform_job(MediaCollectionIndexingWorker, %{id: source.id})
+
+      assert_enqueued worker: MediaCollectionIndexingWorker, args: %{"id" => source.id}
+    end
+
     test "indexes the source if it should be indexed" do
       expect(YtDlpRunnerMock, :run, fn _url, :get_media_attributes_for_collection, _opts, _ot, _addl_opts ->
         {:ok, ""}

@@ -78,22 +78,26 @@ defmodule Pinchflat.SlowIndexing.MediaCollectionIndexingWorker do
 
     case {source.index_frequency_minutes, source.last_indexed_at} do
       {index_freq, _} when index_freq > 0 ->
-        # If the indexing is on a schedule simply run indexing and reschedule
-        perform_indexing_and_notification(source, was_forced: args["force"])
-        maybe_enqueue_fast_indexing_task(source)
+        # Reschedule FIRST so a backend failure below can never kill the
+        # indexing cadence - Oban still retries the failed attempt for
+        # visibility in the dashboard
         reschedule_indexing(source)
+        maybe_enqueue_fast_indexing_task(source)
+        result = perform_indexing_and_notification(source, was_forced: args["force"])
+        surface_backend_failure(result)
 
       {_, nil} ->
         # If the source has never been indexed, index it once
         # even if it's not meant to reschedule
-        perform_indexing_and_notification(source, was_forced: args["force"])
-        :ok
+        result = perform_indexing_and_notification(source, was_forced: args["force"])
+        surface_backend_failure(result)
 
       _ ->
         # If the source HAS been indexed and is not meant to reschedule,
         # perform a no-op (unless forced)
         if args["force"] do
-          perform_indexing_and_notification(source, was_forced: true)
+          result = perform_indexing_and_notification(source, was_forced: true)
+          surface_backend_failure(result)
         end
 
         :ok
@@ -134,4 +138,13 @@ defmodule Pinchflat.SlowIndexing.MediaCollectionIndexingWorker do
       |> Tasks.create_job_with_task(source)
     end
   end
+  # The helpers deliver backend failures via the process dictionary (they keep
+  # their list return shape) - pick it up and turn it into an Oban error
+  defp surface_backend_failure(fallback) do
+    case Process.delete(:indexing_backend_failed) do
+      nil -> {:ok, fallback}
+      err -> {:error, "indexing backend failed: #{inspect(err)}"}
+    end
+  end
+
 end
