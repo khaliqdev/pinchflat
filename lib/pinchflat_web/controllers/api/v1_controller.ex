@@ -16,9 +16,9 @@ defmodule PinchflatWeb.Api.V1Controller do
   end
 
   def source_media(conn, %{"id" => id} = params) do
-    with {int_id, ""} <- Integer.parse(to_string(id)) do
-      source = Sources.get_source!(int_id)
-      media_items = Media.list_media_items_for_api(nil, api_opts(params, source.id))
+    with {int_id, ""} <- Integer.parse(to_string(id)),
+         {:ok, _source} <- wrap_get(fn -> Sources.get_source!(int_id) end) do
+      media_items = Media.list_media_items_for_api(nil, api_opts(params, int_id))
 
       json(conn, %{data: Enum.map(media_items, &render_media_item/1)})
     else
@@ -33,13 +33,18 @@ defmodule PinchflatWeb.Api.V1Controller do
   end
 
   def media_item(conn, %{"id" => id}) do
-    with {int_id, ""} <- Integer.parse(to_string(id)) do
-      media_item = Media.get_media_item!(int_id)
-
+    with {int_id, ""} <- Integer.parse(to_string(id)),
+         {:ok, media_item} <- wrap_get(fn -> Media.get_media_item!(int_id) end) do
       json(conn, %{data: render_media_item(media_item)})
     else
       _ -> send_not_found(conn)
     end
+  end
+
+  defp wrap_get(fun) do
+    {:ok, fun.()}
+  rescue
+    Ecto.NoResultsError -> :error
   end
 
   defp api_opts(params, source_id) do
