@@ -1,10 +1,12 @@
 # Pinchflat Personal Edition — Roadmap
 
-Fork of kieraneglin/pinchflat @ 67d8bd5 (upstream dormant since 2025-12-16).
-Goal: fix the bugs, improve the mechanics, then polish the UI/UX. Personal Unraid deployment.
+Fork of kieraneglin/pinchflat @ 67d8bd5, now FULLY DETACHED and rebranded **re:Pinchflat**
+(upstream dormant since 2025-12-16; this fork is for one personal Unraid deployment and is
+not shared publicly). `personal` is the default branch; no upstream syncing.
+
+Goal status: bugs fixed (Phase 1), mechanics improved (Phase 2), UI reworked (Phase 3+).
 
 Deployment target: Unraid via Docker (`docker/selfhosted.Dockerfile`), SQLite on local disk.
-Upstream syncing: `master` tracks upstream; all work lands on `personal` (and fix branches off it).
 
 ---
 

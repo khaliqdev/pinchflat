@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="re:Pinchflat — download into a flat plane">
+  <title>re:Pinchflat — Variant B: Landing Plane</title>
+  <!-- zinc-900 background so the tile also sits nicely inside the dark app UI -->
+  <rect width="512" height="512" rx="96" fill="#18181b"/>
+  <!-- subtle inner keyline -->
+  <rect x="18" y="18" width="476" height="476" rx="80" fill="none" stroke="#27272a" stroke-width="6"/>
+  <!-- solid downward arrow, one piece, rounded joins -->
+  <polygon points="224,196 224,108 288,108 288,196 368,196 256,336 144,196" fill="#fafafa" stroke="#fafafa" stroke-width="28" stroke-linejoin="round"/>
+  <!-- the flat plane, flexing under the incoming media -->
+  <path d="M 136 396 Q 256 446 376 396" fill="none" stroke="#2563eb" stroke-width="52" stroke-linecap="round"/>
+</svg>

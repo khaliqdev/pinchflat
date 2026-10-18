@@ -9,7 +9,10 @@
   <section>
     <div class="flex items-center justify-between gap-2 px-6 py-4">
       <a href={~p"/"} class="flex items-center">
-        <img src={~p"/images/logo-2024-03-20.png"} alt="Pinchflat" class="w-auto" />
+        <img src={~p"/images/re-pinchflat-icon.svg"} alt="re:Pinchflat" class="h-9 w-9" />
+        <span class="text-lg font-bold tracking-tight text-white">
+          re<span class="text-primary">:</span>Pinchflat
+        </span>
       </a>
 
       <button class="block mt-3 lg:hidden" @click.stop="sidebarVisible = !sidebarVisible">
@@ -43,43 +46,12 @@
   <section>
     <nav class="px-4 py-4 lg:px-6">
       <ul class="mb-6 flex flex-col gap-1.5">
-        <.sidebar_item
-          icon="hero-book-open"
-          text="Docs"
-          target="_blank"
-          href="https://github.com/kieraneglin/pinchflat/wiki"
-          icon_class="scale-110"
-        />
-        <.sidebar_item icon="si-github" text="Github" target="_blank" href="https://github.com/kieraneglin/pinchflat" />
-        <.sidebar_item icon="si-discord" text="Discord" target="_blank" href="https://discord.gg/j7T6dCuwU4" />
-        <li>
-          <span
-            class={[
-              "font-medium text-bodydark1",
-              "group relative flex items-center gap-2.5 rounded-sm px-4 py-2 duration-300 ease-in-out",
-              "duration-300 ease-in-out cursor-pointer",
-              "hover:bg-graydark dark:hover:bg-meta-4"
-            ]}
-            phx-click={show_modal("donate-modal")}
-          >
-            <.icon name="hero-currency-dollar" class="scale-110" /> Donate
-          </span>
-        </li>
         <li>
           <span
             class="group relative flex items-center gap-2.5 px-4 pt-2 text-sm"
             x-on:click={"markVersionAsSeen('#{Application.spec(:pinchflat)[:vsn]}')"}
           >
-            <span>Pinchflat {Application.spec(:pinchflat)[:vsn]}</span>
-            <a
-              href="https://github.com/kieraneglin/pinchflat/releases"
-              target="_blank"
-              class="bg-meta-2 text-boxdark px-1.5 rounded-full text-xs"
-              x-cloak
-              x-show={"!isVersionSeen('#{Application.spec(:pinchflat)[:vsn]}')"}
-            >
-              NEW
-            </a>
+            <span>re:Pinchflat {Application.spec(:pinchflat)[:vsn]}</span>
           </span>
           <span class="group relative flex items-center gap-2.5 px-4 pt-2 text-sm">
             yt-dlp {Settings.get!(:yt_dlp_version)}

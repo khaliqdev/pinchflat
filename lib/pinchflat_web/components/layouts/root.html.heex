@@ -5,10 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
     <.live_title>
-      {assigns[:page_title] || "Pinchflat"}
+      {assigns[:page_title] || "re:Pinchflat"}
     </.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
-    <link rel="icon" type="image/x-icon" href={~p"/favicon.ico?cachebust=2024-03-20"} />
+    <link rel="icon" type="image/svg+xml" href={~p"/images/re-pinchflat-icon.svg"} />
+    <link rel="icon" type="image/png" sizes="32x32" href={~p"/images/re-pinchflat-icon-32.png"} />
+    <link rel="apple-touch-icon" sizes="180x180" href={~p"/images/re-pinchflat-icon-180.png"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
     </script>
   </head>
@@ -27,9 +29,5 @@
 
     {@inner_content}
 
-    <.donate_modal conn={@conn} />
-    <template x-if="!proEnabled && !onboarding">
-      <.upgrade_modal conn={@conn} />
-    </template>
   </body>
 </html>

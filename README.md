@@ -25,7 +25,12 @@
 
 </div>
 
-# Your next YouTube media manager
+# re:Pinchflat
+
+A personal fork of [Pinchflat](https://github.com/kieraneglin/pinchflat) — maintained
+for one deployment (khaliq's Unraid server) with fixes, engine improvements, a reworked
+UI, and a read-only API. Not intended for public use; see `ROADMAP.md` for what changed
+relative to upstream.
 
 ## Table of contents:
 
