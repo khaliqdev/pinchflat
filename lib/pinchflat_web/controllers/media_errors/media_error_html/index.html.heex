@@ -35,6 +35,20 @@
 <div class="flex flex-col gap-4">
   <div :for={item <- @errors} class="rounded-sm border border-stroke bg-white px-5 py-4 shadow-default dark:border-strokedark dark:bg-boxdark">
     <div class="flex flex-wrap items-center gap-2">
+      <img
+        :if={(item.thumbnail_filepath && item.uuid) || item.media_id}
+        src={
+          cond do
+            item.thumbnail_filepath && item.uuid -> ~p"/media/#{item.uuid}/episode_image"
+            item.media_id -> "https://i.ytimg.com/vi/#{item.media_id}/mqdefault.jpg"
+            true -> nil
+          end
+        }
+        alt=""
+        loading="lazy"
+        class="h-9 w-16 shrink-0 rounded-md border border-strokedark object-cover"
+        onerror="this.classList.add('hidden')"
+      />
       <span class="shrink-0 rounded-md border border-red-500/20 bg-red-500/10 px-1.5 py-0.5 text-xs font-medium leading-4 text-red-400">
         Failed
       </span>

@@ -86,7 +86,8 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
           />
         </:col>
         <:col :let={media_item} label="Title" class="max-w-xs">
-          <section class="flex items-center space-x-1">
+          <section class="flex items-center space-x-2">
+            <.media_thumbnail media_item={media_item} />
             <.tooltip
               :if={media_item.last_error}
               tooltip={media_item.last_error}
@@ -369,6 +370,38 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
 
   # Selecting only what we need GREATLY speeds up queries on large tables
   defp select_fields do
-    [:id, :title, :uploaded_at, :media_filepath, :members_only, :prevent_download, :last_error]
+    [:id, :title, :uuid, :media_id, :thumbnail_filepath, :uploaded_at, :media_filepath, :members_only, :prevent_download, :last_error]
+  end
+
+  # Downloaded items use the locally-stored thumbnail (served by UUID); pending
+  # items fall back to YouTube's own CDN thumbnail, fetched by the BROWSER so
+  # the server never contacts YouTube for these. Broken thumbs hide themselves.
+  defp media_thumbnail(assigns) do
+    item = assigns.media_item
+
+    src =
+      cond do
+        item.thumbnail_filepath && item.uuid ->
+          ~p"/media/#{item.uuid}/episode_image"
+
+        item.media_id ->
+          "https://i.ytimg.com/vi/#{item.media_id}/mqdefault.jpg"
+
+        true ->
+          nil
+      end
+
+    assigns = assign(assigns, :src, src)
+
+    ~H"""
+    <img
+      :if={@src}
+      src={@src}
+      alt=""
+      loading="lazy"
+      class="h-9 w-16 shrink-0 rounded-md border border-strokedark object-cover"
+      onerror="this.classList.add('hidden')"
+    />
+    """
   end
 end
