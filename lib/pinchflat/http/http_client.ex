@@ -23,7 +23,11 @@ defmodule Pinchflat.HTTP.HTTPClient do
   def get(url, headers \\ [], opts \\ []) do
     headers = parse_headers(headers)
 
-    case :httpc.request(:get, {url, headers}, [], opts) do
+    # Without explicit timeouts a blackholed connection blocks the calling
+    # worker slot forever (the :httpc default is infinity)
+    http_opts = [timeout: 30_000, connect_timeout: 10_000]
+
+    case :httpc.request(:get, {url, headers}, http_opts, opts) do
       {:ok, {{_version, 200, _reason_phrase}, _headers, body}} ->
         {:ok, to_string(body)}
 

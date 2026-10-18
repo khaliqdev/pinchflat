@@ -43,7 +43,7 @@ defmodule PinchflatWeb.Plugs do
   Otherwise, it sends a 401 response.
   """
   def token_protected_route(%{query_params: %{"route_token" => route_token}} = conn, _opts) do
-    if Settings.get!(:route_token) == route_token do
+    if Plug.Crypto.secure_compare(Settings.get!(:route_token) || "", route_token) do
       conn
     else
       send_unauthorized(conn)

@@ -188,6 +188,34 @@ defmodule Pinchflat.YtDlp.CommandRunnerTest do
     end
   end
 
+  describe "run/4 tmpfile cleanup" do
+    test "deletes the generated output file after reading it" do
+      tmp_dir = Application.get_env(:pinchflat, :tmpfile_directory)
+      before_count = count_json_files(tmp_dir)
+
+      assert {:ok, _} = Runner.run(@media_url, :foo, [], "")
+      Process.sleep(50)
+
+      assert count_json_files(tmp_dir) == before_count
+    end
+
+    test "keeps caller-supplied output files" do
+      filepath = FilesystemUtils.generate_metadata_tmpfile(:json)
+
+      assert {:ok, _} = Runner.run(@media_url, :foo, [], "", output_filepath: filepath)
+      Process.sleep(50)
+
+      assert File.exists?(filepath)
+      File.rm(filepath)
+    end
+
+    defp count_json_files(dir) do
+      dir
+      |> File.ls!()
+      |> Enum.count(&String.ends_with?(&1, ".json"))
+    end
+  end
+
   describe "update/0" do
     test "adds the update arg" do
       assert {:ok, output} = Runner.update()

@@ -127,7 +127,7 @@ defmodule Pinchflat.Boot.PreJobStartupTasks do
   end
 
   defp literal_path_segment?(segment) do
-    !String.contains?(segment, "{{") && !String.contains?(segment, "%(")
+    !String.contains?(segment, ["{{", "%(", ".."]) && segment not in [".", ""]
   end
 
   defp apply_default_settings do

@@ -185,6 +185,48 @@ defmodule PinchflatWeb.MediaItemControllerTest do
       assert byte_size(conn.resp_body) == 101
     end
 
+    test "serves the last N bytes for suffix ranges", %{conn: conn, media_item: media_item} do
+      filesize = File.stat!(media_item.media_filepath).size
+
+      conn =
+        conn
+        |> put_req_header("range", "bytes=-100")
+        |> get(~p"/media/#{media_item.uuid}/stream")
+
+      assert conn.status == 206
+      assert {"content-range", "bytes #{filesize - 100}-#{filesize - 1}/#{filesize}"} in conn.resp_headers
+      assert {"content-length", "100"} in conn.resp_headers
+    end
+
+    test "serves the whole file for suffix ranges longer than the file", %{conn: conn, media_item: media_item} do
+      filesize = File.stat!(media_item.media_filepath).size
+      conn =
+        conn
+        |> put_req_header("range", "bytes=-999999999")
+        |> get(~p"/media/#{media_item.uuid}/stream")
+
+      assert conn.status == 206
+      assert {"content-range", "bytes 0-#{filesize - 1}/#{filesize}"} in conn.resp_headers
+    end
+
+    test "escapes quotes in the content-disposition filename", %{conn: conn} do
+      media_item = media_item_with_attachments(%{title: ~s(Evil " Quote) <> "\n" <> "Title"})
+
+      conn = get(conn, ~p"/media/#{media_item.uuid}/stream")
+
+      {_, disposition} = List.keyfind(conn.resp_headers, "content-disposition", 0)
+      refute String.contains?(disposition, ~s(" Evil))
+      refute String.contains?(disposition, "\n")
+    end
+
+    test "404s when the media filepath is nil", %{conn: conn} do
+      media_item = media_item_fixture(%{media_filepath: nil})
+
+      conn = get(conn, ~p"/media/#{media_item.uuid}/stream")
+
+      assert conn.status == 404
+    end
+
     test "supports range offsets", %{conn: conn, media_item: media_item} do
       contents = File.read!(media_item.media_filepath)
       expected = String.slice(contents, 100..200)

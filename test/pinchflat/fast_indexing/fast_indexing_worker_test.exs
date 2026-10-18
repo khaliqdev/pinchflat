@@ -25,6 +25,17 @@ defmodule Pinchflat.FastIndexing.FastIndexingWorkerTest do
   end
 
   describe "perform/1" do
+    test "survives a fetch failure and still reschedules itself" do
+      # Both the API and RSS fetches fail - previously this raised and burned
+      # the whole retry chain without ever rescheduling
+      expect(HTTPClientMock, :get, fn _url -> {:error, ""} end)
+
+      source = source_fixture(fast_index: true)
+
+      assert {:error, _} = perform_job(FastIndexingWorker, %{id: source.id})
+
+      assert_enqueued worker: FastIndexingWorker, args: %{"id" => source.id}
+    end
     test "calls out to Youtube RSS if enabled" do
       expect(HTTPClientMock, :get, fn _url -> {:ok, ""} end)
       source = source_fixture(fast_index: true)

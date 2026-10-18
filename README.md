@@ -179,6 +179,10 @@ If you change this setting and it works well for you, please leave a comment on 
 | `YT_DLP_WORKER_CONCURRENCY` | No        | `2`                       | The number of concurrent workers that use `yt-dlp` _per queue_. Set to 1 if you're getting IP limited, otherwise don't touch it           |
 | `ENABLE_PROMETHEUS`         | No        | `false`                   | Setting to _any_ non-blank value will enable Prometheus. See [docs](https://github.com/kieraneglin/pinchflat/wiki/Prometheus-and-Grafana) |
 | `YT_DLP_AUTO_UPDATE`        | No        | `nightly`                 | `nightly` updates yt-dlp on boot and on a nightly schedule, `boot` only updates on boot, `off` disables automatic updates |
+| `DB_POOL_SIZE`              | No        | `10`                      | Database connection pool size. Raise if you see checkout timeouts under heavy indexing |
+| `DB_BUSY_TIMEOUT_MS`        | No        | `30000`                   | How long SQLite waits on a locked database before erroring (upstream #832/#873) |
+| `OBAN_PRUNER_MAX_AGE_DAYS`  | No        | `30`                      | Job history retention; the jobs table is the main source of database growth (upstream #887) |
+| `BACKUP_DIRECTORY`          | No        | `<config>/db/backups`     | Where nightly database backups (`VACUUM INTO`) are written; 7 days retained |
 | `PUID` / `PGID`             | No        |                           | When both are set, the container fixes up `/config` ownership and runs as that user/group instead of root, so downloaded files aren't owned by root |
 
 ### Reverse Proxies

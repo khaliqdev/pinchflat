@@ -79,16 +79,20 @@ defmodule Pinchflat.Metadata.MetadataFileHelpers do
   Parses an upload date from the YYYYMMDD string returned in yt-dlp metadata
   and returns a DateTime struct, appending a time of 00:00:00Z.
 
-  Returns DateTime.t()
+  Returns DateTime.t() | nil - a malformed date (eg yt-dlp's "00000000" for
+  live/premiere videos without timestamps) must not raise: this is called
+  from indexing paths where one poison video would fail the whole run.
   """
-  def parse_upload_date(upload_date) do
+  def parse_upload_date(upload_date) when is_binary(upload_date) and byte_size(upload_date) == 8 do
     <<year::binary-size(4)>> <> <<month::binary-size(2)>> <> <<day::binary-size(2)>> = upload_date
 
     case DateTime.from_iso8601("#{year}-#{month}-#{day}T00:00:00Z") do
       {:ok, datetime, _} -> datetime
-      _ -> raise "Invalid upload date: #{upload_date}"
+      _ -> nil
     end
   end
+
+  def parse_upload_date(_), do: nil
 
   @doc """
   Attempts to determine the series directory from a media filepath.

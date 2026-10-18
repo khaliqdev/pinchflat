@@ -140,6 +140,14 @@ defmodule Pinchflat.Metadata.MetadataFileHelpersTest do
       upload_date = "20210101"
 
       assert Helpers.parse_upload_date(upload_date) == ~U[2021-01-01 00:00:00Z]
+
+    end
+
+    test "returns nil for malformed dates instead of raising" do
+      refute Helpers.parse_upload_date("00000000")
+      refute Helpers.parse_upload_date("not-a-date")
+      refute Helpers.parse_upload_date(nil)
+      refute Helpers.parse_upload_date("202101")
     end
   end
 

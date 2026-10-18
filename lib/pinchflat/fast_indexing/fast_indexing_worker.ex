@@ -52,8 +52,17 @@ defmodule Pinchflat.FastIndexing.FastIndexingWorker do
     source = Sources.get_source!(source_id)
 
     if source.fast_index do
+      # Rescheduling runs FIRST so a fetch failure (surfaced via the helpers
+      # through the process dictionary) can never kill the indexing cadence -
+      # Oban still retries the failed attempt for dashboard visibility
+      task_result = reschedule_indexing(source)
       perform_indexing_and_send_notification(source)
-      reschedule_indexing(source)
+
+      if Process.delete(:media_id_fetch_failed) do
+        {:error, "media ID fetch failed - next run already scheduled"}
+      else
+        {:ok, task_result}
+      end
     else
       :ok
     end

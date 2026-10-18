@@ -76,6 +76,9 @@ defmodule Pinchflat.Metadata.NfoBuilder do
   defp determine_season_and_episode_number(filepath, upload_date) do
     case MetadataFileHelpers.season_and_episode_from_media_filepath(filepath) do
       {:ok, {season, episode}} -> {season, episode}
+      # yt-dlp sometimes returns "00000000" for premieres; parse_upload_date
+      # yields nil there, so fall back to a neutral date rather than crashing
+      {:error, _} when is_nil(upload_date) -> {0, "0000"}
       {:error, _} -> {upload_date.year, Calendar.strftime(upload_date, "%m%d")}
     end
   end

@@ -37,6 +37,7 @@ defmodule Pinchflat.YtDlp.CommandRunner do
     Logger.debug("Running yt-dlp command for action: #{action_name}")
 
     output_filepath = generate_output_filepath(addl_opts)
+    caller_supplied_filepath = Keyword.has_key?(addl_opts, :output_filepath)
     print_to_file_opts = [{:print_to_file, output_template}, output_filepath]
     user_configured_opts = cookie_file_options(addl_opts) ++ rate_limit_options(addl_opts) ++ misc_options()
     # These must stay in exactly this order, hence why I'm giving it its own variable.
@@ -51,13 +52,21 @@ defmodule Pinchflat.YtDlp.CommandRunner do
       #     2 = Error in user-provided options
       #     1 = Any other error
       {_, status} when status in [0, 101] ->
-        # IDEA: consider deleting the file after reading it. It's in the tmp dir, so it's not
-        # a huge deal, but it's still a good idea to clean up after ourselves.
-        # (even on error? especially on error?)
-        File.read(output_filepath)
+        result = File.read(output_filepath)
+
+        # Tmpfiles accumulate one-per-command forever otherwise (thousands per
+        # month on an active library). Caller-supplied paths are left alone
+        # since the file watcher needs them to persist.
+        if not caller_supplied_filepath, do: File.rm(output_filepath)
+
+        result
 
       {output, status} ->
         maybe_trip_rate_limit(output)
+
+        # Clean up even (especially) on error - the file may be partial but is
+        # still captured in full in the returned output
+        if not caller_supplied_filepath, do: File.rm(output_filepath)
 
         {:error, output, status}
     end

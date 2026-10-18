@@ -91,7 +91,7 @@ defmodule Pinchflat.Podcasts.RssFeedBuilder do
       />
       <itunes:author>#{safe(source.custom_name)}</itunes:author>
       <itunes:subtitle>#{safe(media_item.title)}</itunes:subtitle>
-      <itunes:summary><![CDATA[#{media_item.description}]]></itunes:summary>
+      <itunes:summary><![CDATA[#{cdata_safe(media_item.description)}]]></itunes:summary>
 
       #{item_image_path && ~s(<itunes:image href="#{safe(item_image_path)}"></itunes:image>)}
       #{item_image_path && ~s(<podcast:images srcset="#{safe(item_image_path)}" />)}
@@ -139,4 +139,10 @@ defmodule Pinchflat.Podcasts.RssFeedBuilder do
   defp media_route(action, params) do
     Routes.media_item_path(PinchflatWeb.Endpoint, action, params)
   end
+  # A literal "]]>" inside a description would terminate the CDATA section and
+  # make the whole feed unparseable - split it across two sections instead
+  defp cdata_safe(text) do
+    String.replace(to_string(text), "]]>", "]]]]><![CDATA[>")
+  end
+
 end

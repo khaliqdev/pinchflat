@@ -71,7 +71,8 @@ defmodule PinchflatWeb.MediaItems.MediaItemController do
   def stream(conn, %{"uuid" => uuid}) do
     media_item = Repo.get_by!(MediaItem, uuid: uuid)
 
-    if File.exists?(media_item.media_filepath) do
+    # Culled-but-cached enclosures can carry a nil filepath
+    if is_binary(media_item.media_filepath) && File.exists?(media_item.media_filepath) do
       file_size = File.stat!(media_item.media_filepath).size
       mime_type = MIME.from_path(media_item.media_filepath)
 
@@ -85,7 +86,7 @@ defmodule PinchflatWeb.MediaItems.MediaItemController do
           |> put_resp_header("accept-ranges", "bytes")
           |> put_resp_header("content-range", "bytes #{start_pos}-#{end_pos}/#{file_size}")
           |> put_resp_header("content-length", to_string(length))
-          |> put_resp_header("content-disposition", "inline; filename=\"#{media_item.title}\"")
+          |> put_resp_header("content-disposition", "inline; filename=\"#{header_safe_filename(media_item.title)}\"")
           |> send_file(206, media_item.media_filepath, start_pos, length)
 
         {:error, :invalid_range} ->
@@ -96,7 +97,7 @@ defmodule PinchflatWeb.MediaItems.MediaItemController do
           |> put_resp_header("accept-ranges", "bytes")
           |> put_resp_header("content-range", "bytes 0-#{file_size - 1}/#{file_size}")
           |> put_resp_header("content-length", to_string(file_size))
-          |> put_resp_header("content-disposition", "inline; filename=\"#{media_item.title}\"")
+          |> put_resp_header("content-disposition", "inline; filename=\"#{header_safe_filename(media_item.title)}\"")
           |> send_file(200, media_item.media_filepath)
       end
     else
@@ -122,6 +123,15 @@ defmodule PinchflatWeb.MediaItems.MediaItemController do
       {{start_pos, _}, :error} ->
         {:ok, {start_pos, file_size - 1}}
 
+      # Suffix range (RFC 7233 "bytes=-500"): serve the last N bytes. Players
+      # fetch file tails (moov atoms, ID3 tags) this way
+      {:error, {suffix_length, _}} when suffix_length > 0 and suffix_length < file_size ->
+        {:ok, {file_size - suffix_length, file_size - 1}}
+
+      # "-0" or a suffix longer than the file: whole file
+      {:error, {suffix_length, _}} when suffix_length >= 0 ->
+        {:ok, {0, file_size - 1}}
+
       # See RFC7233
       {{start_pos, _}, {end_pos, _}} when end_pos >= file_size ->
         {:ok, {start_pos, file_size - 1}}
@@ -129,5 +139,14 @@ defmodule PinchflatWeb.MediaItems.MediaItemController do
       {{start_pos, _}, {end_pos, _}} ->
         {:ok, {start_pos, end_pos}}
     end
+  end
+
+  defp header_safe_filename(title) do
+    title
+    |> to_string()
+    |> String.replace(~s("), "'")
+    |> String.replace("\n", " ")
+    |> String.replace("\r", " ")
+    |> String.slice(0, 200)
   end
 end

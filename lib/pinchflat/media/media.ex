@@ -7,7 +7,6 @@ defmodule Pinchflat.Media do
   use Pinchflat.Media.MediaQuery
 
   alias Pinchflat.Repo
-  alias Pinchflat.Tasks.TasksQuery
   alias Pinchflat.Tasks
   alias Pinchflat.Sources.Source
   alias Pinchflat.Media.MediaItem

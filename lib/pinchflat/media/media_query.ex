@@ -36,7 +36,16 @@ defmodule Pinchflat.Media.MediaQuery do
   def errored, do: dynamic([mi], not is_nil(mi.last_error))
   def culling_prevented, do: dynamic([mi], mi.prevent_culling == true)
   def redownloaded, do: dynamic([mi], not is_nil(mi.media_redownloaded_at))
-  def upload_date_matches(other_date), do: dynamic([mi], fragment("date(?) = date(?)", mi.uploaded_at, ^other_date))
+  # Expressed as a half-open range rather than date() = date() so the
+  # (source_id, uploaded_at) index stays usable - this runs once per insert
+  def upload_date_matches(other_date) do
+    next_day = Date.add(other_date, 1)
+
+    dynamic(
+      [mi],
+      fragment("? >= ? AND ? < ?", mi.uploaded_at, ^other_date, mi.uploaded_at, ^next_day)
+    )
+  end
 
   def upload_date_after_source_cutoff do
     dynamic(

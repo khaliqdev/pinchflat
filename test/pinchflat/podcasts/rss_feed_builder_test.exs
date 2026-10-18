@@ -21,6 +21,25 @@ defmodule Pinchflat.Podcasts.RssFeedBuilderTest do
       assert String.contains?(res, ~s(<?xml version="1.0" encoding="UTF-8"?>))
     end
 
+    test "does not emit a raw CDATA terminator for descriptions containing ]]" do
+      filepath = "/tmp/test/cdata-pf-test-#{System.unique_integer()}/media.mp4"
+      File.mkdir_p!(Path.dirname(filepath))
+      File.write!(filepath, "x")
+      source = source_fixture()
+      media_item_fixture(%{
+        source_id: source.id,
+        description: "hello ]]> world",
+        media_filepath: filepath,
+        media_downloaded_at: DateTime.utc_now()
+      })
+
+      res = RssFeedBuilder.build(source)
+
+      # The summary CDATA must be split, never terminated early by content
+      refute String.contains?(res, "hello ]]> world")
+      assert String.contains?(res, "hello ]]]]><![CDATA[> world")
+    end
+
     test "escapes illegal characters" do
       source = source_fixture(%{custom_name: "A & B"})
       res = RssFeedBuilder.build(source)

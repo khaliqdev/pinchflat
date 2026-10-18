@@ -112,7 +112,8 @@ defmodule Pinchflat.FastIndexing.YoutubeApi do
             {current, rem(current + 1, length(keys))}
           end)
 
-        Logger.debug("Using YouTube API key: #{Enum.at(keys, current_index)}")
+        key = Enum.at(keys, current_index)
+        Logger.debug("Using YouTube API key #{current_index + 1}/#{length(keys)} (...#{String.slice(key, -4..-1)})")
         Enum.at(keys, current_index)
     end
   end

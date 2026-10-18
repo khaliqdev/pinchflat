@@ -46,7 +46,7 @@ defmodule Pinchflat.FastIndexing.FastIndexingHelpers do
     # accurate predicted filepath
     source = Repo.preload(source, [:media_profile])
 
-    {:ok, media_ids} = get_recent_media_ids(source)
+    media_ids = get_recent_media_ids_or_empty(source)
     existing_media_items = list_media_items_by_media_id_for(source, media_ids)
     new_media_ids = media_ids -- Enum.map(existing_media_items, & &1.media_id)
 
@@ -68,6 +68,26 @@ defmodule Pinchflat.FastIndexing.FastIndexingHelpers do
     DownloadingHelpers.enqueue_pending_download_tasks(source, priority: 1)
 
     Enum.filter(maybe_new_media_items, & &1)
+  end
+
+  # A fetch failure must not raise here: the worker reschedules itself only
+  # after this function returns, and a raise would burn the whole retry chain
+  # (with day-long backoff) on a single transient network failure. Returning
+  # [] keeps the cadence alive; the fetch error is logged and surfaced by the
+  # worker returning an error to Oban.
+  defp get_recent_media_ids_or_empty(source) do
+    case get_recent_media_ids(source) do
+      {:ok, media_ids} ->
+        media_ids
+
+      {:error, reason} = err ->
+        Logger.error("Failed to fetch recent media IDs for source ##{source.id}: #{inspect(reason)}")
+
+        # Same process as the worker (perform runs helpers inline); the
+        # dictionary is the pickup channel the worker reads via Process.delete
+        Process.put(:media_id_fetch_failed, err)
+        []
+    end
   end
 
   # If possible, use the YouTube API to fetch media IDs. If that fails, fall back to the RSS feed.

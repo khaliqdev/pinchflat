@@ -4,7 +4,6 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
 
   alias Pinchflat.Repo
   alias Pinchflat.Media
-  alias Pinchflat.Tasks.TasksQuery
   alias Pinchflat.Sources
   alias Pinchflat.Utils.NumberUtils
 
@@ -177,9 +176,10 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
   def handle_event("page_change", %{"direction" => direction}, %{assigns: assigns} = socket) do
     direction = if direction == "inc", do: 1, else: -1
     new_page = assigns.page + direction
-    new_assigns = fetch_pagination_attributes(assigns.base_query, new_page, assigns.search_term)
 
-    {:noreply, assign(socket, Map.put(new_assigns, :downloading_ids, downloading_ids()))}
+    socket
+    |> assign(page: NumberUtils.clamp(new_page, 1, assigns.total_pages))
+    |> refetch()
   end
 
   def handle_event("select_row", %{"id" => id}, %{assigns: assigns} = socket) do
@@ -219,9 +219,10 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
 
   def handle_event("search_term", params, socket) do
     search_term = Map.get(params, "q", nil)
-    new_assigns = fetch_pagination_attributes(socket.assigns.base_query, 1, search_term)
 
-    {:noreply, assign(socket, Map.put(new_assigns, :downloading_ids, downloading_ids()))}
+    socket
+    |> assign(search_term: search_term)
+    |> refetch()
   end
 
   # This, along with the handle_info below, is a pattern to reload _all_
@@ -237,13 +238,34 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
   end
 
   # Fires on every Oban job state change (see Telemetry.job_state_change_broadcast),
-  # which is how downloads starting/stopping reach this table without polling
-  def handle_info(%{topic: "job:state", event: "change"}, socket) do
-    refetch(socket)
+  # which is how downloads starting/stopping reach this table without polling.
+  # Events arrive in bursts (one start + one stop per job), so they're coalesced
+  # into a single refetch per short window - with 3 tables per source page that
+  # keeps a 50-item download burst from fanning into ~900 queries
+  @job_state_debounce_ms 400
+
+  def handle_info(%{topic: "job:state", event: "change"}, %{assigns: %{debounce_timer: timer}} = socket) when is_reference(timer) do
+    {:noreply, socket}
   end
 
+  def handle_info(%{topic: "job:state", event: "change"}, socket) do
+    timer = Process.send_after(self(), :job_state_settled, @job_state_debounce_ms)
+
+    {:noreply, assign(socket, debounce_timer: timer)}
+  end
+
+  def handle_info(:job_state_settled, socket) do
+    socket
+    |> assign(debounce_timer: nil)
+    |> refetch()
+  end
+
+  # Single recompute path for every table refresh: pagination attributes plus
+  # the live downloading set (kept fresh so badges track job state)
   defp refetch(%{assigns: assigns} = socket) do
-    new_assigns = fetch_pagination_attributes(assigns.base_query, assigns.page, assigns.search_term)
+    page = NumberUtils.clamp(assigns.page, 1, assigns.total_pages)
+    search_term = if assigns.search_term in [nil, ""], do: nil, else: assigns.search_term
+    new_assigns = fetch_pagination_attributes(assigns.base_query, page, search_term)
 
     {:noreply, assign(socket, Map.put(new_assigns, :downloading_ids, downloading_ids()))}
   end

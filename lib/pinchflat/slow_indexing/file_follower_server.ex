@@ -51,23 +51,32 @@ defmodule Pinchflat.SlowIndexing.FileFollowerServer do
 
   @impl true
   def handle_cast({:watch_file, filepath, handler}, _old_state) do
-    {:ok, io_device} = :file.open(filepath, [:raw, :read_ahead, :binary])
+    case :file.open(filepath, [:raw, :read_ahead, :binary]) do
+      {:ok, io_device} ->
+        state = %{
+          io_device: io_device,
+          last_activity: DateTime.utc_now(),
+          handler: handler
+        }
 
-    state = %{
-      io_device: io_device,
-      last_activity: DateTime.utc_now(),
-      handler: handler
-    }
+        Process.send(self(), :read_new_lines, [])
 
-    Process.send(self(), :read_new_lines, [])
+        {:noreply, state}
 
-    {:noreply, state}
+      {:error, reason} ->
+        # The watcher is linked to the indexing job; an unguarded raise here
+        # would kill the whole indexing run
+        Logger.error("File follower could not open #{filepath}: #{inspect(reason)}")
+
+        {:stop, :normal, %{}}
+    end
   end
 
   @impl true
   def handle_cast(:stop, state) do
     Logger.debug("Gracefully stopping file follower")
-    :file.close(state.io_device)
+
+    if io_device = state[:io_device], do: :file.close(io_device)
 
     {:stop, :normal, state}
   end
@@ -99,7 +108,16 @@ defmodule Pinchflat.SlowIndexing.FileFollowerServer do
     # before trying again.
     case :file.read_line(io_device) do
       {:ok, line} ->
-        state.handler.(line)
+        # A poison line must not take down the (job-linked) server
+        try do
+          state.handler.(line)
+        rescue
+          e ->
+            Logger.error("""
+            File follower handler raised on line - skipping it:
+            #{Exception.format(:error, e, __STACKTRACE__)}
+            """)
+        end
 
         Process.send(self(), :read_new_lines, [])
 
