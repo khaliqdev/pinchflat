@@ -202,6 +202,101 @@ defmodule Pinchflat.Downloading.MediaDownloaderTest do
 
       assert {:ok, _} = MediaDownloader.download_for_media_item(media_item)
     end
+
+    test "retries with cookies and remembers the source needs them on cookie errors" do
+      expect(YtDlpRunnerMock, :run, 4, fn
+        _url, :get_downloadable_status, _opts, _ot, addl ->
+          if {:use_cookies, true} in addl do
+            {:ok, "{}"}
+          else
+            {:error, "ERROR: [youtube] abc: Sign in to confirm you're not a bot", 1}
+          end
+
+        _url, :download, _opts, _ot, addl ->
+          assert {:use_cookies, true} in addl
+
+          {:ok, render_metadata(:media_metadata)}
+
+        _url, :download_thumbnail, _opts, _ot, _addl ->
+          {:ok, ""}
+      end)
+
+      source = source_fixture(%{cookie_behaviour: :when_needed})
+      media_item = media_item_fixture(%{source_id: source.id})
+
+      assert {:ok, _} = MediaDownloader.download_for_media_item(media_item)
+      assert Repo.get!(Pinchflat.Sources.Source, source.id).cookies_required
+    end
+
+    test "does not remember cookies for sources with cookies disabled" do
+      expect(YtDlpRunnerMock, :run, 1, fn
+        _url, :get_downloadable_status, _opts, _ot, addl ->
+          assert {:use_cookies, false} in addl
+          {:error, "ERROR: Sign in to confirm you're not a bot", 1}
+      end)
+
+      source = source_fixture(%{cookie_behaviour: :disabled})
+      media_item = media_item_fixture(%{source_id: source.id})
+
+      assert {:error, :download_failed, _} = MediaDownloader.download_for_media_item(media_item)
+      refute Repo.get!(Pinchflat.Sources.Source, source.id).cookies_required
+    end
+  end
+
+  describe "download_for_media_item/3 when media is post_live" do
+    test "does not download recently-uploaded post_live media" do
+      expect(YtDlpRunnerMock, :run, 1, fn
+        _url, :get_downloadable_status, _opts, _ot, _addl ->
+          {:ok, Phoenix.json_library().encode!(%{"live_status" => "post_live"})}
+      end)
+
+      source = source_fixture()
+      media_item =
+        media_item_fixture(%{source_id: source.id, uploaded_at: DateTime.add(DateTime.utc_now(), -3600)})
+
+      assert {:error, :unsuitable_for_download, _} = MediaDownloader.download_for_media_item(media_item)
+    end
+
+    test "downloads post_live media once the grace period has passed" do
+      expect(YtDlpRunnerMock, :run, 3, fn
+        _url, :get_downloadable_status, _opts, _ot, _addl ->
+          {:ok, Phoenix.json_library().encode!(%{"live_status" => "post_live"})}
+
+        _url, :download, _opts, _ot, _addl ->
+          {:ok, render_metadata(:media_metadata)}
+
+        _url, :download_thumbnail, _opts, _ot, _addl ->
+          {:ok, ""}
+      end)
+
+      source = source_fixture()
+      media_item =
+        media_item_fixture(%{source_id: source.id, uploaded_at: DateTime.add(DateTime.utc_now(), -72 * 3600)})
+
+      assert {:ok, _} = MediaDownloader.download_for_media_item(media_item)
+    end
+  end
+
+  describe "download_for_media_item/3 when the thumbnail download fails" do
+    test "still succeeds — thumbnail failure must not fail the download (upstream #889)" do
+      expect(YtDlpRunnerMock, :run, 3, fn
+        _url, :get_downloadable_status, _opts, _ot, _addl ->
+          {:ok, Phoenix.json_library().encode!(%{"live_status" => "not_live"})}
+
+        _url, :download, _opts, _ot, _addl ->
+          {:ok, render_metadata(:media_metadata)}
+
+        _url, :download_thumbnail, _opts, _ot, _addl ->
+          {:error, "ERROR: Sign in to confirm you're not a bot", 1}
+      end)
+
+      source = source_fixture(%{cookie_behaviour: :when_needed})
+      media_item = media_item_fixture(%{source_id: source.id})
+
+      assert {:ok, media_item} = MediaDownloader.download_for_media_item(media_item)
+      assert media_item.media_filepath
+      assert is_nil(media_item.metadata.thumbnail_filepath) || media_item.metadata.thumbnail_filepath == nil
+    end
   end
 
   describe "download_for_media_item/3 when testing non-cookie retries" do

@@ -1,4 +1,21 @@
 #!/bin/sh
+
+# PUID/PGID support (Unraid/LinuxServer convention, upstream #709): when both
+# are set, fix up ownership of writable paths and re-run this script as that
+# user instead of root. /config is chowned recursively; /downloads only gets a
+# non-recursive chown so huge existing libraries don't slow down every boot.
+if [ "$(id -u)" = "0" ] && [ -n "$PUID" ] && [ -n "$PGID" ]; then
+  echo "PUID/PGID detected (${PUID}:${PGID}) - applying ownership and dropping privileges"
+  getent group "$PGID" >/dev/null 2>&1 || addgroup --gid "$PGID" pinchflat
+  getent passwd "$PUID" >/dev/null 2>&1 || adduser --uid "$PUID" --gid "$PGID" --disabled-password --gecos "" pinchflat
+
+  chown -R "$PUID:$PGID" /config /etc/yt-dlp /etc/yt-dlp/plugins /etc/elixir_tzdata_data 2>/dev/null || true
+  chown "$PUID:$PGID" /downloads 2>/dev/null || true
+
+  echo "Dropping privileges to ${PUID}:${PGID}"
+  exec env HOME=/config setpriv --reuid "$PUID" --regid "$PGID" --init-groups "$0"
+fi
+
 /app/bin/check_file_permissions
 
 if [ $? -ne 0 ]; then

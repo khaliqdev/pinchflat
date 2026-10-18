@@ -190,6 +190,35 @@ defmodule Pinchflat.Downloading.DownloadOptionBuilder do
     ]
   end
 
+  @doc """
+  Returns the yt-dlp `--config-locations` options for the user-provided custom
+  config files that affect download behavior at the source level. Real downloads
+  load these, so predictions that need to match download behavior (like
+  series-directory detection, upstream #902) should load them too.
+
+  Returns [Keyword.t()]
+  """
+  def user_config_locations(source_id \\ nil) do
+    base_dir = Path.join(Application.get_env(:pinchflat, :extras_directory), "yt-dlp-configs")
+
+    filenames =
+      [
+        source_id && "source-#{source_id}-config.txt",
+        "base-config.txt"
+      ]
+      |> Enum.filter(& &1)
+
+    Enum.reduce(filenames, [], fn filename, acc ->
+      filepath = Path.join(base_dir, filename)
+
+      if FSUtils.exists_and_nonempty?(filepath) do
+        [{:config_locations, filepath} | acc]
+      else
+        acc
+      end
+    end)
+  end
+
   defp build_output_path(string, media_item_with_preloads) do
     additional_options_map = output_options_map(media_item_with_preloads)
     {:ok, output_path} = OutputPathBuilder.build(string, additional_options_map)

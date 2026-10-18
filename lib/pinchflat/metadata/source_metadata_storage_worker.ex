@@ -94,7 +94,11 @@ defmodule Pinchflat.Metadata.SourceMetadataStorageWorker do
     output_path = DownloadOptionBuilder.build_output_path_for(source)
     runner_opts = [output: output_path]
     addl_opts = [use_cookies: Sources.use_cookies?(source, :metadata)]
-    {:ok, %{filepath: filepath}} = MediaCollection.get_source_details(source.original_url, runner_opts, addl_opts)
+    # Load the same user configs as real downloads so predicted paths match
+    # yt-dlp's actual filename sanitization (upstream #902)
+    command_opts = DownloadOptionBuilder.user_config_locations(source.id)
+
+    {:ok, %{filepath: filepath}} = MediaCollection.get_source_details(source.original_url, command_opts, addl_opts)
 
     case MetadataFileHelpers.series_directory_from_media_filepath(filepath) do
       {:ok, series_directory} -> series_directory

@@ -86,7 +86,9 @@ defmodule Pinchflat.YtDlp.CommandRunner do
     command = backend_executable()
 
     case CliUtils.wrap_cmd(command, ["--update"]) do
-      {output, 0} ->
+      # 100 = the update completed but yt-dlp must restart to finish applying it.
+      # The binary on disk is already updated at this point.
+      {output, status} when status in [0, 100] ->
         {:ok, String.trim(output)}
 
       {output, _} ->

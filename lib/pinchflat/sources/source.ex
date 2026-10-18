@@ -79,6 +79,9 @@ defmodule Pinchflat.Sources.Source do
     field :index_frequency_minutes, :integer, default: 60 * 24
     field :fast_index, :boolean, default: false
     field :cookie_behaviour, Ecto.Enum, values: [:disabled, :when_needed, :all_operations], default: :disabled
+    # Set internally when yt-dlp hits a cookie-recoverable error so `:when_needed`
+    # sources fall back to cookies for all operations from then on. Not user-settable.
+    field :cookies_required, :boolean, default: false
     field :download_media, :boolean, default: true
     field :last_indexed_at, :utc_datetime
     # Only download media items that were published after this date

@@ -178,6 +178,8 @@ If you change this setting and it works well for you, please leave a comment on 
 | `BASE_ROUTE_PATH`           | No        | `/`                       | The base path for route generation. Useful when running behind certain reverse proxies - prefixes must be stripped.                       |
 | `YT_DLP_WORKER_CONCURRENCY` | No        | `2`                       | The number of concurrent workers that use `yt-dlp` _per queue_. Set to 1 if you're getting IP limited, otherwise don't touch it           |
 | `ENABLE_PROMETHEUS`         | No        | `false`                   | Setting to _any_ non-blank value will enable Prometheus. See [docs](https://github.com/kieraneglin/pinchflat/wiki/Prometheus-and-Grafana) |
+| `YT_DLP_AUTO_UPDATE`        | No        | `nightly`                 | `nightly` updates yt-dlp on boot and on a nightly schedule, `boot` only updates on boot, `off` disables automatic updates |
+| `PUID` / `PGID`             | No        |                           | When both are set, the container fixes up `/config` ownership and runs as that user/group instead of root, so downloaded files aren't owned by root |
 
 ### Reverse Proxies
 

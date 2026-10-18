@@ -2,6 +2,7 @@ defmodule Pinchflat.Boot.PreJobStartupTasksTest do
   use Pinchflat.DataCase
 
   import Pinchflat.JobFixtures
+  import Pinchflat.SourcesFixtures
 
   alias Pinchflat.Settings
   alias Pinchflat.Boot.PreJobStartupTasks
@@ -24,6 +25,33 @@ defmodule Pinchflat.Boot.PreJobStartupTasksTest do
       PreJobStartupTasks.init(%{})
 
       assert File.exists?(tmpfile_dir)
+    end
+  end
+
+  describe "ensure_source_output_directories" do
+    test "creates the literal directory prefix of a source's output template" do
+      media_directory = Application.get_env(:pinchflat, :media_directory)
+      on_exit(fn -> File.rm_rf!(Path.join(media_directory, "pf-boot-test")) end)
+
+      source_fixture(%{output_path_template_override: "pf-boot-test/Literal Dir/{{ title }}.{{ ext }}"})
+
+      refute File.exists?(Path.join([media_directory, "pf-boot-test", "Literal Dir"]))
+
+      PreJobStartupTasks.init(%{})
+
+      assert File.exists?(Path.join([media_directory, "pf-boot-test", "Literal Dir"]))
+    end
+
+    test "does not create directories for variable-only path segments" do
+      media_directory = Application.get_env(:pinchflat, :media_directory)
+      on_exit(fn -> File.rm_rf!(Path.join(media_directory, "pf-boot-test2")) end)
+
+      source_fixture(%{output_path_template_override: "pf-boot-test2/{{ season }}/{{ title }}.{{ ext }}"})
+
+      PreJobStartupTasks.init(%{})
+
+      assert File.exists?(Path.join(media_directory, "pf-boot-test2"))
+      refute File.exists?(Path.join([media_directory, "pf-boot-test2", "Season 1"]))
     end
   end
 

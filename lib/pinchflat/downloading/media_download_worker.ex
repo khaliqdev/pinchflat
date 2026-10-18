@@ -75,14 +75,21 @@ defmodule Pinchflat.Downloading.MediaDownloadWorker do
   end
 
   # If a user script exists and, when run, returns a non-zero exit code, prevent this and all future downloads
-  # of the media item.
+  # of the media item. The reason is recorded in last_error so script-prevented items are
+  # distinguishable from manually-ignored ones (see upstream issue #789).
   defp fetch_and_run_prevent_download_user_script(media_item_id) do
     media_item = Media.get_media_item!(media_item_id)
 
     {:ok, media_item} =
       case run_user_script(:media_pre_download, media_item) do
-        {:ok, _, exit_code} when exit_code != 0 -> Media.update_media_item(media_item, %{prevent_download: true})
-        _ -> {:ok, media_item}
+        {:ok, _, exit_code} when exit_code != 0 ->
+          Media.update_media_item(media_item, %{
+            prevent_download: true,
+            last_error: "Download prevented by user script (exit code #{exit_code})"
+          })
+
+        _ ->
+          {:ok, media_item}
       end
 
     Repo.preload(media_item, :source)

@@ -11,7 +11,9 @@ defmodule Pinchflat.Metadata.MediaMetadata do
   alias Pinchflat.Media.MediaItem
 
   @allowed_fields ~w(metadata_filepath thumbnail_filepath)a
-  @required_fields ~w(metadata_filepath thumbnail_filepath)a
+  # thumbnail_filepath is optional: a failed thumbnail download should never
+  # invalidate the media item save (it caused a crash-loop, upstream #889)
+  @required_fields ~w(metadata_filepath)a
 
   schema "media_metadata" do
     field :metadata_filepath, :string

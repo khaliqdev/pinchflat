@@ -56,14 +56,14 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
             >
               <.icon name="hero-exclamation-circle-solid" class="text-red-500" />
             </.tooltip>
-            <span class="truncate">
+            <span class={["truncate", media_item.last_error && "text-red-500"]}>
               <.subtle_link href={~p"/sources/#{@source.id}/media/#{media_item.id}"}>
                 {media_item.title}
               </.subtle_link>
             </span>
           </section>
         </:col>
-        <:col :let={media_item} :if={@media_state == "other"} label="Manually Ignored?">
+        <:col :let={media_item} :if={@media_state == "other"} label="Download Prevented?">
           <.icon name={if media_item.prevent_download, do: "hero-check", else: "hero-x-mark"} />
         </:col>
         <:col :let={media_item} label="Upload Date">

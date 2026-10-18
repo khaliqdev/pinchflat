@@ -407,6 +407,7 @@ defmodule Pinchflat.Downloading.MediaDownloadWorkerTest do
 
       refute media_item.media_filepath
       assert media_item.prevent_download
+      assert media_item.last_error =~ "prevented by user script"
     end
 
     test "downloads media if the pre-download script is not present", %{media_item: media_item} do

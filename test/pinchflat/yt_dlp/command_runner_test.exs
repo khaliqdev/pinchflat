@@ -194,6 +194,14 @@ defmodule Pinchflat.YtDlp.CommandRunnerTest do
 
       assert String.contains?(output, "--update")
     end
+
+    test "considers a 100 exit code as being successful" do
+      wrap_executable("/app/test/support/scripts/yt-dlp-mocks/100_exit_code.sh", fn ->
+        assert {:ok, output} = Runner.update()
+
+        assert String.contains?(output, "Restart to complete update")
+      end)
+    end
   end
 
   defp wrap_executable(new_executable, fun) do

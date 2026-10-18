@@ -85,6 +85,60 @@ defmodule Pinchflat.SourcesTest do
       source = source_fixture(%{cookie_behaviour: :when_needed})
       assert Sources.use_cookies?(source, :error_recovery)
     end
+
+    test "returns true for downloading and metadata once cookies have been marked required" do
+      source = source_fixture(%{cookie_behaviour: :when_needed})
+      {:ok, source} = Sources.mark_cookies_required!(source)
+
+      assert Sources.use_cookies?(source, :downloading)
+      assert Sources.use_cookies?(source, :metadata)
+      assert Sources.use_cookies?(source, :indexing)
+    end
+
+    test "returns false for downloading if cookies_required is set but behaviour is disabled" do
+      source = source_fixture(%{cookie_behaviour: :disabled})
+      flagged = %{source | cookies_required: true}
+
+      refute Sources.use_cookies?(flagged, :downloading)
+    end
+  end
+
+  describe "mark_cookies_required!/1" do
+    test "flags the source as requiring cookies" do
+      source = source_fixture(%{cookie_behaviour: :when_needed})
+
+      assert {:ok, %Source{cookies_required: true}} = Sources.mark_cookies_required!(source)
+      assert Repo.get!(Source, source.id).cookies_required
+    end
+
+    test "does nothing if the source is already flagged" do
+      source = source_fixture(%{cookie_behaviour: :when_needed})
+      {:ok, source} = Sources.mark_cookies_required!(source)
+
+      assert {:ok, :unchanged} = Sources.mark_cookies_required!(source)
+    end
+
+    test "does nothing if the source has cookies disabled" do
+      source = source_fixture(%{cookie_behaviour: :disabled})
+
+      assert {:ok, :unchanged} = Sources.mark_cookies_required!(source)
+      refute Repo.get!(Source, source.id).cookies_required
+    end
+  end
+
+  describe "cookie_error?/1" do
+    test "returns true for known cookie-recoverable errors" do
+      assert Sources.cookie_error?("ERROR: [youtube] abc: Sign in to confirm you're not a bot")
+      assert Sources.cookie_error?("ERROR: HTTP Error 429: Too Many Requests")
+      assert Sources.cookie_error?("The following content is not available on this app")
+      assert Sources.cookie_error?("no impersonate target is available")
+      assert Sources.cookie_error?("This video is available to this channel's members")
+    end
+
+    test "returns false for unrelated errors" do
+      refute Sources.cookie_error?("ERROR: Unsupported URL")
+      refute Sources.cookie_error?(nil)
+    end
   end
 
   describe "list_sources/0" do
@@ -431,6 +485,24 @@ defmodule Pinchflat.SourcesTest do
         refute Keyword.get(addl, :use_cookies)
 
         {:ok, playlist_return()}
+      end)
+
+      valid_attrs = %{
+        media_profile_id: media_profile_fixture().id,
+        original_url: "https://www.youtube.com/channel/abc123",
+        cookie_behaviour: :when_needed
+      }
+
+      assert {:ok, %Source{}} = Sources.create_source(valid_attrs)
+    end
+
+    test "retries source detail fetch with cookies on cookie errors when :when_needed" do
+      expect(YtDlpRunnerMock, :run, 2, fn _url, :get_source_details, _opts, _ot, addl ->
+        if Keyword.get(addl, :use_cookies) do
+          {:ok, playlist_return()}
+        else
+          {:error, "ERROR: Sign in to confirm you're not a bot", 1}
+        end
       end)
 
       valid_attrs = %{

@@ -35,14 +35,57 @@ defmodule Pinchflat.Sources do
   @doc """
   Returns a boolean indicating whether or not cookies should be used for a given operation.
 
+  `:when_needed` sources use cookies only for indexing and error recovery until
+  yt-dlp hits a cookie-recoverable error — from then on `cookies_required` is set
+  and cookies are used for every operation on that source.
+
   Returns boolean()
   """
   def use_cookies?(source, operation) when operation in [:indexing, :downloading, :metadata, :error_recovery] do
     case source.cookie_behaviour do
       :disabled -> false
       :all_operations -> true
-      :when_needed -> operation in [:indexing, :error_recovery]
+      :when_needed -> source.cookies_required || operation in [:indexing, :error_recovery]
     end
+  end
+
+  @doc """
+  Flags a source as having required cookies during a yt-dlp operation so that
+  `:when_needed` sources use cookies for all operations going forward. Does
+  nothing for `:disabled` sources since that would go against the user's
+  explicit setting.
+
+  Returns {:ok, %Source{}} | {:ok, :unchanged} | {:error, %Ecto.Changeset{}}
+  """
+  def mark_cookies_required!(%Source{} = source) do
+    if source.cookie_behaviour == :disabled || source.cookies_required do
+      {:ok, :unchanged}
+    else
+      source
+      |> Ecto.Changeset.change(cookies_required: true)
+      |> Repo.update()
+    end
+  end
+
+  @doc """
+  Returns true if the given yt-dlp error output looks like something that
+  supplying cookies could fix.
+
+  Returns boolean()
+  """
+  def cookie_error?(message) do
+    cookie_recoverable_errors()
+    |> Enum.any?(&String.contains?(to_string(message), &1))
+  end
+
+  defp cookie_recoverable_errors do
+    [
+      "Sign in to confirm",
+      "This video is available to this channel's members",
+      "The following content is not available on this app",
+      "HTTP Error 429",
+      "no impersonate target"
+    ]
   end
 
   @doc """
@@ -194,28 +237,47 @@ defmodule Pinchflat.Sources do
 
   defp add_source_details_to_changeset(source, changeset) do
     original_url = changeset.changes.original_url
-    should_use_cookies = Ecto.Changeset.get_field(changeset, :cookie_behaviour) == :all_operations
+    cookie_behaviour = Ecto.Changeset.get_field(changeset, :cookie_behaviour)
     # Skipping sleep interval since this is UI blocking and we want to keep this as fast as possible
-    addl_opts = [use_cookies: should_use_cookies, skip_sleep_interval: true]
+    addl_opts = [use_cookies: cookie_behaviour == :all_operations, skip_sleep_interval: true]
 
     case MediaCollection.get_source_details(original_url, [], addl_opts) do
       {:ok, source_details} ->
         add_source_details_by_collection_type(source, changeset, source_details)
 
-      err ->
-        runner_error =
-          case err do
-            {:error, error_msg, _status_code} -> error_msg
-            {:error, error_msg} -> error_msg
-          end
+      {:error, error_msg, _status_code} = err ->
+        if cookie_behaviour in [:all_operations, :when_needed] && cookie_error?(error_msg) do
+          retry_addl_opts = Keyword.put(addl_opts, :use_cookies, true)
 
-        Ecto.Changeset.add_error(
-          changeset,
-          :original_url,
-          "could not fetch source details from URL",
-          error: runner_error
-        )
+          case MediaCollection.get_source_details(original_url, [], retry_addl_opts) do
+            {:ok, source_details} ->
+              add_source_details_by_collection_type(source, changeset, source_details)
+
+            err ->
+              add_source_details_error(changeset, err)
+          end
+        else
+          add_source_details_error(changeset, err)
+        end
+
+      err ->
+        add_source_details_error(changeset, err)
     end
+  end
+
+  defp add_source_details_error(changeset, err) do
+    runner_error =
+      case err do
+        {:error, error_msg, _status_code} -> error_msg
+        {:error, error_msg} -> error_msg
+      end
+
+    Ecto.Changeset.add_error(
+      changeset,
+      :original_url,
+      "could not fetch source details from URL",
+      error: runner_error
+    )
   end
 
   defp add_source_details_by_collection_type(source, changeset, source_details) do

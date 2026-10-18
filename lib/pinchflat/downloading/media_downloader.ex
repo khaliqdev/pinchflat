@@ -78,7 +78,19 @@ defmodule Pinchflat.Downloading.MediaDownloader do
 
     case download_with_options(media_item.original_url, media_with_preloads, output_filepath, override_opts) do
       {:ok, parsed_json} ->
-        update_media_item_from_parsed_json(media_with_preloads, parsed_json)
+        case update_media_item_from_parsed_json(media_with_preloads, parsed_json) do
+          {:ok, media_item} ->
+            {:ok, media_item}
+
+          {:error, changeset} ->
+            # A failed post-download save used to raise a CaseClauseError here,
+            # which Oban retried forever — re-downloading the media each time (#889)
+            message = "Failed to save media item after download: #{inspect(changeset.errors)}"
+
+            Logger.error(message)
+
+            {:error, :update_failed, message}
+        end
 
       {:error, :unsuitable_for_download} ->
         message =
@@ -169,6 +181,13 @@ defmodule Pinchflat.Downloading.MediaDownloader do
       {{:ok, :ignorable}, _} ->
         {:error, :unsuitable_for_download}
 
+      {{:ok, :post_live}, _} ->
+        if post_live_recheck_elapsed?(item_with_preloads) do
+          YtDlpMedia.download(url, options, runner_opts)
+        else
+          {:error, :unsuitable_for_download}
+        end
+
       {{:error, _message, _exit_code} = err, false} ->
         # If there was an error and we don't have cookies, this method will retry with cookies
         # if doing so would help AND the source allows. Otherwise, it will return the error as-is
@@ -184,10 +203,33 @@ defmodule Pinchflat.Downloading.MediaDownloader do
     end
   end
 
+  # YouTube's post_live status usually flips to was_live once VOD processing
+  # finishes, but for some videos it never does (upstream #851). If the media
+  # was uploaded longer than the grace period ago, processing is definitely
+  # done and we should attempt the download regardless of the stale status.
+  @post_live_grace_period_hours 48
+
+  defp post_live_recheck_elapsed?(%MediaItem{} = media_item) do
+    case media_item.uploaded_at do
+      nil ->
+        true
+
+      uploaded_at ->
+        DateTime.diff(DateTime.utc_now(), uploaded_at) > @post_live_grace_period_hours * 3600
+    end
+  end
+
   defp maybe_retry_with_cookies(url, item_with_preloads, output_filepath, override_opts, err) do
+
     {:error, message, _} = err
     source = item_with_preloads.source
-    message_contains_cookie_error = String.contains?(to_string(message), recoverable_cookie_errors())
+    message_contains_cookie_error = Sources.cookie_error?(message)
+
+    if message_contains_cookie_error && source.cookie_behaviour != :disabled do
+      # Remember this source needed cookies so future operations use them from
+      # the start instead of failing first. See Sources.use_cookies?/2
+      Sources.mark_cookies_required!(source)
+    end
 
     if Sources.use_cookies?(source, :error_recovery) && message_contains_cookie_error do
       download_with_options(
@@ -204,13 +246,6 @@ defmodule Pinchflat.Downloading.MediaDownloader do
   defp recoverable_errors do
     [
       "Unable to communicate with SponsorBlock"
-    ]
-  end
-
-  defp recoverable_cookie_errors do
-    [
-      "Sign in to confirm",
-      "This video is available to this channel's members"
     ]
   end
 end

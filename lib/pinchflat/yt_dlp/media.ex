@@ -169,7 +169,11 @@ defmodule Pinchflat.YtDlp.Media do
 
   defp parse_downloadable_status(response) do
     case response["live_status"] do
-      status when status in ["is_live", "is_upcoming", "post_live"] -> {:ok, :ignorable}
+      status when status in ["is_live", "is_upcoming"] -> {:ok, :ignorable}
+      # `post_live` means the stream ended but YouTube is still processing the VOD.
+      # YouTube sometimes never flips this to `was_live`, so the caller re-checks
+      # the item's age and downloads anyway after a grace period (upstream #851).
+      "post_live" -> {:ok, :post_live}
       status when status in ["was_live", "not_live"] -> {:ok, :downloadable}
       # This preserves my tenuous support for non-youtube sources.
       nil -> {:ok, :downloadable}

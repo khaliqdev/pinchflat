@@ -49,6 +49,19 @@ config :pinchflat, Pinchflat.Repo,
 # breaks something
 %{hour: current_hour, minute: current_minute} = DateTime.utc_now()
 
+# Controls the yt-dlp self-update: "nightly" (default) updates on boot and on a
+# nightly cron, "boot" only updates on boot, "off" disables automatic updates.
+yt_dlp_auto_update = System.get_env("YT_DLP_AUTO_UPDATE", "nightly")
+
+config :pinchflat, yt_dlp_auto_update: yt_dlp_auto_update
+
+yt_dlp_update_crontab =
+  if yt_dlp_auto_update == "off" do
+    []
+  else
+    [{"#{current_minute} #{current_hour} * * *", Pinchflat.YtDlp.UpdateWorker}]
+  end
+
 config :pinchflat, Oban,
   queues: [
     default: 10,
@@ -62,11 +75,12 @@ config :pinchflat, Oban,
     # Keep old jobs for 30 days for display in the UI
     {Oban.Plugins.Pruner, max_age: 30 * 24 * 60 * 60},
     {Oban.Plugins.Cron,
-     crontab: [
-       {"#{current_minute} #{current_hour} * * *", Pinchflat.YtDlp.UpdateWorker},
-       {"0 1 * * *", Pinchflat.Downloading.MediaRetentionWorker},
-       {"0 2 * * *", Pinchflat.Downloading.MediaQualityUpgradeWorker}
-     ]}
+     crontab:
+       yt_dlp_update_crontab ++
+         [
+           {"0 1 * * *", Pinchflat.Downloading.MediaRetentionWorker},
+           {"0 2 * * *", Pinchflat.Downloading.MediaQualityUpgradeWorker}
+         ]}
   ]
 
 if config_env() == :prod do

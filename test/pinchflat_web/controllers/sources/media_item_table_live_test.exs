@@ -74,7 +74,7 @@ defmodule PinchflatWeb.Sources.MediaItemTableLiveTest do
 
       {:ok, _view, html} = live_isolated(conn, MediaItemTableLive, session: create_session(source, "other"))
 
-      assert html =~ "Manually Ignored?"
+      assert html =~ "Download Prevented?"
     end
   end
 

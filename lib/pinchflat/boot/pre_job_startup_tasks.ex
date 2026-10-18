@@ -14,6 +14,7 @@ defmodule Pinchflat.Boot.PreJobStartupTasks do
 
   alias Pinchflat.Repo
   alias Pinchflat.Settings
+  alias Pinchflat.Sources
   alias Pinchflat.Utils.FilesystemUtils
 
   alias Pinchflat.Lifecycle.UserScripts.CommandRunner, as: UserScriptRunner
@@ -44,6 +45,7 @@ defmodule Pinchflat.Boot.PreJobStartupTasks do
     reset_executing_jobs()
     create_blank_yt_dlp_files()
     create_blank_user_script_file()
+    ensure_source_output_directories()
     apply_default_settings()
     run_app_init_script()
 
@@ -95,6 +97,37 @@ defmodule Pinchflat.Boot.PreJobStartupTasks do
       FilesystemUtils.write_p!(filepath, "")
       File.chmod(filepath, 0o755)
     end
+  end
+
+  # yt-dlp doesn't create output directories during simulate/indexing runs, and a
+  # wholly-missing custom directory used to crash the app (upstream #898). This
+  # creates the fully-literal directory prefix of every source's output template;
+  # yt-dlp creates any variable-derived subdirectories during real downloads.
+  defp ensure_source_output_directories do
+    Sources.list_sources()
+    |> Repo.preload(:media_profile)
+    |> Enum.each(&ensure_directory_for_source/1)
+  end
+
+  defp ensure_directory_for_source(source) do
+    media_directory = Application.get_env(:pinchflat, :media_directory)
+
+    directory =
+      source
+      |> Sources.output_path_template()
+      |> Path.dirname()
+      |> Path.split()
+      |> Enum.take_while(&literal_path_segment?/1)
+      |> Path.join()
+      |> then(&Path.join(media_directory, &1))
+
+    if directory != media_directory, do: File.mkdir_p!(directory)
+  rescue
+    e -> Logger.warning("Unable to create output directory for source ##{source.id}: #{Exception.message(e)}")
+  end
+
+  defp literal_path_segment?(segment) do
+    !String.contains?(segment, "{{") && !String.contains?(segment, "%(")
   end
 
   defp apply_default_settings do
