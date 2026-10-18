@@ -5,11 +5,12 @@ for one deployment (khaliq's Unraid server) with fixes, engine improvements, a r
 UI, and a read-only API. Not intended for public use; see `ROADMAP.md` for what changed
 relative to upstream.
 
-## Table of contents:
+## What it does
 
-- [What it does](#what-it-does)
-- [Features](#features)
-- [Screenshots](#screenshots)
+Identical core to upstream Pinchflat: subscribe to YouTube channels/playlists, download
+new content automatically via yt-dlp, organize it for Plex/Jellyfin/Kodi, serve podcast
+RSS feeds. See the [upstream wiki](https://github.com/kieraneglin/pinchflat/wiki) for
+general usage; this fork's differences live in `ROADMAP.md`.
 - [Installation](#installation)
   - [Unraid](#unraid)
   - [Portainer](#portainer)
