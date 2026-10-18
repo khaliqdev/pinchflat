@@ -62,5 +62,6 @@ defmodule Pinchflat.Settings.Setting do
     |> cast(attrs, @allowed_fields)
     |> validate_required(@required_fields)
     |> validate_number(:extractor_sleep_interval_seconds, greater_than_or_equal_to: 0)
+    |> validate_inclusion(:default_theme, ~w(dark light system))
   end
 end

@@ -64,6 +64,21 @@ defmodule PinchflatWeb.Api.V1ControllerTest do
       refute Enum.any?(items, &(&1["title"] == "Fine Item"))
     end
 
+    test "clamps negative limits to a single-item page instead of dumping the table", %{conn: conn} do
+      media_item_fixture(%{title: "Clamp Item"})
+
+      conn = get(conn, ~p"/api/v1/media_items?limit=-1&route_token=test-token-123")
+
+      assert %{"data" => items} = json_response(conn, 200)
+      assert length(items) == 1
+    end
+
+    test "handles repeated limit params without crashing", %{conn: conn} do
+      conn = get(conn, ~p"/api/v1/media_items?limit=1&limit=2&route_token=test-token-123")
+
+      assert %{"data" => _} = json_response(conn, 200)
+    end
+
     test "respects the limit param", %{conn: conn} do
       Enum.each(1..3, &media_item_fixture(%{title: "Item #{&1}"}))
 

@@ -2,6 +2,7 @@ defmodule PinchflatWeb.Api.V1Controller do
   use PinchflatWeb, :controller
 
   alias Pinchflat.Media
+  alias Pinchflat.Utils.NumberUtils
   alias Pinchflat.Sources
 
   @max_limit 500
@@ -49,7 +50,10 @@ defmodule PinchflatWeb.Api.V1Controller do
 
   defp api_opts(params, source_id) do
     [
-      limit: min(parse_int(params["limit"], 100), @max_limit),
+      # SQLite treats a negative LIMIT as "no bound", which would let
+      # ?limit=-1 dump the whole table in one response. Nonsense values
+      # degrade to a single-item page rather than empty
+      limit: parse_int(params["limit"], 100) |> NumberUtils.clamp(1, @max_limit),
       offset: max(parse_int(params["offset"], 0), 0),
       source_id: source_id
     ]
@@ -63,8 +67,12 @@ defmodule PinchflatWeb.Api.V1Controller do
 
   defp parse_int(nil, default), do: default
 
+  # Plug parses repeated params as lists ("?limit=1&limit=2") - coerce to
+  # string so Integer.parse can't raise on them
+  defp parse_int(value, default) when is_list(value), do: parse_int(List.first(value), default)
+
   defp parse_int(value, default) do
-    case Integer.parse(value) do
+    case Integer.parse(to_string(value)) do
       {int, _} -> int
       :error -> default
     end

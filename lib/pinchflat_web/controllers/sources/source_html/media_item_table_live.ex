@@ -271,17 +271,8 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
     {:noreply, assign(socket, Map.put(new_assigns, :downloading_ids, downloading_ids()))}
   end
 
-  # Items with an actively-executing MediaDownloadWorker job. The executing set is
-  # tiny by construction (media_fetching concurrency is deliberately low)
   defp downloading_ids do
-    from(t in Pinchflat.Tasks.Task,
-      join: j in Oban.Job,
-      on: j.id == t.job_id,
-      where: j.state == "executing" and "media_item" in j.tags and like(j.worker, "%MediaDownloadWorker"),
-      select: t.media_item_id
-    )
-    |> Repo.all()
-    |> MapSet.new()
+    Media.downloading_media_item_ids() |> MapSet.new()
   end
 
   defp fetch_pagination_attributes(base_query, page, ""), do: fetch_pagination_attributes(base_query, page, nil)

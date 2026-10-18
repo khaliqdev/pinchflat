@@ -53,9 +53,13 @@ defmodule Pinchflat.Lifecycle.Notifications.FailureDigestWorker do
     first = hd(items)
     first_error = first.last_error |> to_string() |> String.split("\n") |> hd() |> String.slice(0, 140)
 
+    # A full page (limit 100) means more items are waiting behind the cursor;
+    # say so rather than undercounting a mass failure
+    count_label = if length(items) >= 100, do: "100+", else: Integer.to_string(length(items))
+
     opts = [
-      title: "[Pinchflat] Download failures",
-      body: "#{length(items)} new download failure(s). First: #{first.title} - #{first_error}"
+      title: "[re:Pinchflat] Download failures",
+      body: "#{count_label} new download failure(s). First: #{first.title} - #{first_error}"
     ]
 
     case apprise_runner().run(Settings.get!(:apprise_server), opts) do

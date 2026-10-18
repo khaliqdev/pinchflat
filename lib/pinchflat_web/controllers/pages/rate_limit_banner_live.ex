@@ -8,9 +8,22 @@ defmodule Pinchflat.Pages.RateLimitBannerLive do
   use PinchflatWeb, :live_view
 
   def mount(_params, _session, socket) do
-    if connected?(socket), do: PinchflatWeb.Endpoint.subscribe("rate_limit")
+    if connected?(socket) do
+      PinchflatWeb.Endpoint.subscribe("rate_limit")
+      schedule_expiry_check()
+    end
 
     {:ok, assign(socket, until: current_until())}
+  end
+
+  # Cooldowns elapse on their own (no broadcast fires), so poll near the
+  # deadline to retire the banner without a page refresh
+  defp schedule_expiry_check do
+    remaining = Pinchflat.RateLimit.seconds_remaining()
+
+    if remaining > 0 do
+      Process.send_after(self(), :check_expiry, min(remaining * 1000, 60_000))
+    end
   end
 
   def render(assigns) do
@@ -28,6 +41,14 @@ defmodule Pinchflat.Pages.RateLimitBannerLive do
   end
 
   def handle_info(%{topic: "rate_limit"}, socket) do
+    schedule_expiry_check()
+
+    {:noreply, assign(socket, until: current_until())}
+  end
+
+  def handle_info(:check_expiry, socket) do
+    schedule_expiry_check()
+
     {:noreply, assign(socket, until: current_until())}
   end
 

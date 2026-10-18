@@ -73,7 +73,10 @@ defmodule Pinchflat.Media do
   Returns {count, nil}
   """
   def set_prevent_download_for(media_item_ids, prevent?) when is_list(media_item_ids) do
-    attrs = if prevent?, do: [prevent_download: true], else: [prevent_download: false, last_error: nil]
+    # Clearing last_error on ignore too: errored() is last_error-based, so
+    # keeping it would leave the errors console and nav chip counting items
+    # the user has explicitly dismissed
+    attrs = [prevent_download: prevent?, last_error: nil]
 
     from(m in MediaItem, where: m.id in ^media_item_ids)
     |> Repo.update_all(set: attrs)
@@ -137,6 +140,40 @@ defmodule Pinchflat.Media do
   end
 
   @doc """
+  Filters the given media_item ids down to those currently satisfying the
+  pending-download criteria (same predicate as pending_download?/1, evaluated
+  in one query instead of per item).
+
+  Returns [integer(), ...]
+  """
+  def pending_download_ids_for(media_item_ids) when is_list(media_item_ids) do
+    MediaQuery.new()
+    |> MediaQuery.require_assoc(:media_profile)
+    |> where(^dynamic([mi], mi.id in ^media_item_ids and ^MediaQuery.pending()))
+    |> select([mi], mi.id)
+    |> Repo.all()
+  end
+
+  @doc """
+  Returns the distinct media_item_ids with an actively-executing
+  MediaDownloadWorker job. Shared by the status chips, the media tables'
+  live Downloading badges, and the API's state=downloading filter - keep this
+  query in one place.
+
+  Returns [integer(), ...]
+  """
+  def downloading_media_item_ids do
+    from(t in Pinchflat.Tasks.Task,
+      join: j in Oban.Job,
+      on: j.id == t.job_id,
+      where: j.state == "executing" and "media_item" in j.tags and like(j.worker, "%MediaDownloadWorker"),
+      select: t.media_item_id,
+      distinct: true
+    )
+    |> Repo.all()
+  end
+
+  @doc """
   Maps source_id -> count of downloaded media items.
 
   Returns map()
@@ -177,15 +214,13 @@ defmodule Pinchflat.Media do
   defp apply_state_filter(query, "downloaded"), do: where(query, [mi], ^MediaQuery.downloaded())
 
   defp apply_state_filter(query, "downloading") do
-    executing_worker_subquery =
-      from(t in Pinchflat.Tasks.Task,
-        join: j in Oban.Job,
-        on: j.id == t.job_id,
-        where: j.state == "executing" and "media_item" in j.tags and like(j.worker, "%MediaDownloadWorker"),
-        select: t.media_item_id
-      )
+    # Eager list (executing set is tiny by construction) rather than a
+    # correlated subquery, matching downloading_media_item_ids/0
+    ids = downloading_media_item_ids()
 
-    where(query, [mi], mi.id in subquery(executing_worker_subquery))
+    if ids == [],
+      do: where(query, false),
+      else: where(query, [mi], mi.id in ^ids)
   end
 
   defp apply_state_filter(query, _), do: query
@@ -209,7 +244,7 @@ defmodule Pinchflat.Media do
     |> where(^MediaQuery.errored())
     |> apply_source_filter(source_id)
     |> apply_since_filter(since)
-    |> order_by([mi], desc: mi.updated_at, desc: mi.id)
+    |> order_by([mi], asc: mi.updated_at, asc: mi.id)
     |> limit(^limit)
     |> preload(:source)
     |> Repo.all()

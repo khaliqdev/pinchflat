@@ -28,14 +28,6 @@ window.copyWithCallbacks = async (text, onCopy, onAfterDelay, delay = 4000) => {
   setTimeout(onAfterDelay, delay)
 }
 
-window.markVersionAsSeen = (versionString) => {
-  localStorage.setItem('seenVersion', versionString)
-}
-
-window.isVersionSeen = (versionString) => {
-  return localStorage.getItem('seenVersion') === versionString
-}
-
 window.dispatchFor = (elementOrId, eventName, detail = {}) => {
   const element =
     typeof elementOrId === 'string' ? document.getElementById(elementOrId) : elementOrId

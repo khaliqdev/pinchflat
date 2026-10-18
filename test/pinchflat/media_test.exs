@@ -408,7 +408,7 @@ defmodule Pinchflat.MediaTest do
   end
 
   describe "list_errored_media_items/1" do
-    test "returns only media items with errors, most recent first" do
+    test "returns only media items with errors, oldest first (digest paging)" do
       errored_now = media_item_fixture(%{last_error: "boom now"})
       errored_earlier = media_item_fixture(%{last_error: "boom earlier"})
       _clean = media_item_fixture()
@@ -420,9 +420,11 @@ defmodule Pinchflat.MediaTest do
 
       errored_earlier = Repo.reload!(errored_earlier)
 
+      # Ascending so the failure digest's cursor advances page-by-page and
+      # never skips items beyond the first page
       assert [%{id: first_id}, %{id: second_id}] = Media.list_errored_media_items()
-      assert first_id == errored_now.id
-      assert second_id == errored_earlier.id
+      assert first_id == errored_earlier.id
+      assert second_id == errored_now.id
     end
 
     test "filters by source" do
@@ -433,6 +435,19 @@ defmodule Pinchflat.MediaTest do
 
       assert [%MediaItem{} = item] = Media.list_errored_media_items(source_id: source.id)
       assert item.source_id == source.id
+    end
+  end
+
+  describe "set_prevent_download_for/2" do
+    test "ignoring clears last_error so dismissed failures leave the errors console" do
+      errored = media_item_fixture(%{last_error: "boom", media_filepath: nil})
+      clean = media_item_fixture(%{media_filepath: nil})
+
+      Media.set_prevent_download_for([errored.id, clean.id], true)
+
+      assert Repo.reload!(errored).prevent_download
+      assert is_nil(Repo.reload!(errored).last_error)
+      assert Repo.reload!(clean).prevent_download
     end
   end
 

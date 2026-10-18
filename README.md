@@ -54,11 +54,6 @@ If it doesn't work for your use case, please make a feature request! You can als
 - \[Advanced\] allows custom `yt-dlp` options ([docs](https://github.com/kieraneglin/pinchflat/wiki/%5BAdvanced%5D-Custom-yt%E2%80%90dlp-options))
 - \[Advanced\] supports running custom scripts when after downloading/deleting media (alpha - [docs](https://github.com/kieraneglin/pinchflat/wiki/%5BAdvanced%5D-Custom-lifecycle-scripts))
 
-## Screenshots
-
-<img src="priv/static/images/app-form-screenshot.jpg" alt="Pinchflat screenshot" width="700" />
-<img src="priv/static/images/app-screenshot.jpg" alt="Pinchflat screenshot" width="700" />
-
 ## Installation
 
 ### Unraid

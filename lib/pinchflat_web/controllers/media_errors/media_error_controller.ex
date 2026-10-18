@@ -9,8 +9,10 @@ defmodule PinchflatWeb.MediaErrors.MediaErrorController do
     errored_items = Media.list_errored_media_items(limit: 100)
     # Only retry items the worker would actually act on: clearing errors on
     # ignored items would un-ignore them, and clearing errors on already-downloaded
-    # items would silently hide real breakage
-    {retryable, skipped} = Enum.split_with(errored_items, &Media.pending_download?/1)
+    # items would silently hide real breakage. One batched query instead of
+    # per-item pending checks (~3 queries each).
+    retryable_ids = Media.pending_download_ids_for(Enum.map(errored_items, & &1.id))
+    {retryable, skipped} = Enum.split_with(errored_items, &(&1.id in retryable_ids))
 
     Enum.each(retryable, fn item ->
       Media.update_media_item(item, %{last_error: nil})

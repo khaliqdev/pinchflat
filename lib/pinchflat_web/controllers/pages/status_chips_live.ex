@@ -11,9 +11,13 @@ defmodule Pinchflat.Pages.StatusChipsLive do
 
   use Pinchflat.Media.MediaQuery
 
+  alias Pinchflat.Media
   alias Pinchflat.Repo
 
   @refresh_ms 30_000
+  # Job events arrive in bursts (one start + one stop per job); coalesce like
+  # the media tables do instead of requerying per event
+  @job_state_debounce_ms 400
 
   def mount(_params, _session, socket) do
     if connected?(socket) do
@@ -21,7 +25,7 @@ defmodule Pinchflat.Pages.StatusChipsLive do
       Process.send_after(self(), :refresh, @refresh_ms)
     end
 
-    {:ok, assign(socket, counts: compute_counts())}
+    {:ok, assign(socket, counts: compute_counts(), debounce_timer: nil)}
   end
 
   def render(assigns) do
@@ -46,13 +50,29 @@ defmodule Pinchflat.Pages.StatusChipsLive do
     """
   end
 
-  def handle_info(%{topic: "job:state"}, socket) do
-    {:noreply, assign(socket, counts: compute_counts())}
+  def handle_info(%{topic: "job:state", event: "change"}, %{assigns: %{debounce_timer: timer}} = socket) when is_reference(timer) do
+    {:noreply, socket}
+  end
+
+  def handle_info(%{topic: "job:state", event: "change"}, socket) do
+    timer = Process.send_after(self(), :job_state_settled, @job_state_debounce_ms)
+
+    {:noreply, assign(socket, debounce_timer: timer)}
+  end
+
+  def handle_info(:job_state_settled, socket) do
+    socket
+    |> assign(debounce_timer: nil)
+    |> recompute()
   end
 
   def handle_info(:refresh, socket) do
     Process.send_after(self(), :refresh, @refresh_ms)
 
+    {:noreply, assign(socket, counts: compute_counts())}
+  end
+
+  defp recompute(socket) do
     {:noreply, assign(socket, counts: compute_counts())}
   end
 
@@ -62,17 +82,6 @@ defmodule Pinchflat.Pages.StatusChipsLive do
       |> where(^MediaQuery.errored())
       |> Repo.aggregate(:count, :id)
 
-    downloading =
-      from(t in Pinchflat.Tasks.Task,
-        join: j in Oban.Job,
-        on: j.id == t.job_id,
-        where: j.state == "executing" and "media_item" in j.tags and like(j.worker, "%MediaDownloadWorker"),
-        select: t.media_item_id
-      )
-      |> Repo.all()
-      |> Enum.uniq()
-      |> length()
-
-    %{errored: errored, downloading: downloading}
+    %{errored: errored, downloading: length(Media.downloading_media_item_ids())}
   end
 end
