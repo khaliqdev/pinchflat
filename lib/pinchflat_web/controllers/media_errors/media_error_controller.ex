@@ -1,8 +1,26 @@
 defmodule PinchflatWeb.MediaErrors.MediaErrorController do
   use PinchflatWeb, :controller
 
+  alias Pinchflat.Downloading.MediaDownloadWorker
   alias Pinchflat.Media
   alias Pinchflat.Sources
+
+  def retry(conn, _params) do
+    errored_items = Media.list_errored_media_items(limit: 100)
+    # Only retry items the worker would actually act on: clearing errors on
+    # ignored items would un-ignore them, and clearing errors on already-downloaded
+    # items would silently hide real breakage
+    {retryable, skipped} = Enum.split_with(errored_items, &Media.pending_download?/1)
+
+    Enum.each(retryable, fn item ->
+      Media.update_media_item(item, %{last_error: nil})
+      MediaDownloadWorker.kickoff_with_task(item)
+    end)
+
+    conn
+    |> put_flash(:info, "Retried #{length(retryable)} item(s) (skipped #{length(skipped)} ignored or already downloaded)")
+    |> redirect(to: ~p"/errors")
+  end
 
   def index(conn, params) do
     source_id = parse_source_id(params["source_id"])

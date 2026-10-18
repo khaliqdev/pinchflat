@@ -65,6 +65,13 @@
       />
 
       <.input
+        field={f[:failure_notifications]}
+        type="toggle"
+        label="Notify On Download Failures"
+        help="Sends a bundled apprise notification at most every 15 minutes when new download failures are recorded (uses the Apprise Server setting)"
+      />
+
+      <.input
         field={f[:external_delete_behaviour]}
         options={[
           {"Prevent re-download", "prevent_download"},

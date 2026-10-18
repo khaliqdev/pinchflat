@@ -1,5 +1,15 @@
 <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
   <h2 class="text-title-md2 font-bold text-black dark:text-white">Errors</h2>
+  <div class="flex items-center gap-3">
+    <.link
+      :if={!Enum.empty?(@errors)}
+      href={~p"/errors/retry"}
+      method="post"
+      data-confirm="Re-attempt downloads for every errored item that is still pending. Ignored items and already-downloaded items are skipped."
+      class="rounded-md border border-primary px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary hover:text-white"
+    >
+      Retry Errored
+    </.link>
   <nav class="flex flex-wrap items-center gap-2">
     <.link
       href={~p"/errors"}
@@ -15,6 +25,7 @@
       {source.custom_name}
     </.link>
   </nav>
+  </div>
 </div>
 
 <div :if={Enum.empty?(@errors)} class="rounded-sm border border-stroke bg-white px-5 py-8 text-center shadow-default dark:border-strokedark dark:bg-boxdark">

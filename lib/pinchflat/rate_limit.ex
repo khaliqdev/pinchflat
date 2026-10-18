@@ -36,6 +36,8 @@ defmodule Pinchflat.RateLimit do
 
     Logger.warning("YouTube rate limit detected - pausing yt-dlp work until #{until}")
 
+    broadcast_change()
+
     :ok
   end
 
@@ -46,8 +48,13 @@ defmodule Pinchflat.RateLimit do
   """
   def clear! do
     :persistent_term.put(@cooldown_key, nil)
+    broadcast_change()
 
     :ok
+  end
+
+  defp broadcast_change do
+    PinchflatWeb.Endpoint.broadcast("rate_limit", "change", nil)
   end
 
   @doc """

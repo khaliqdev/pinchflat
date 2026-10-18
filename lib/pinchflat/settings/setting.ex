@@ -18,7 +18,9 @@ defmodule Pinchflat.Settings.Setting do
     :extractor_sleep_interval_seconds,
     :download_throughput_limit,
     :restrict_filenames,
-    :external_delete_behaviour
+    :external_delete_behaviour,
+    :failure_notifications,
+    :failure_digest_cursor
   ]
 
   @required_fields [
@@ -43,6 +45,9 @@ defmodule Pinchflat.Settings.Setting do
     field :restrict_filenames, :boolean, default: false
     # What to do when a media file was deleted outside the app (upstream #805)
     field :external_delete_behaviour, :string, default: "prevent_download"
+    # Opt-in nightly-ish digest of new download failures via apprise
+    field :failure_notifications, :boolean, default: false
+    field :failure_digest_cursor, :utc_datetime
 
     field :video_codec_preference, :string
     field :audio_codec_preference, :string

@@ -7,6 +7,7 @@ defmodule Pinchflat.Media do
   use Pinchflat.Media.MediaQuery
 
   alias Pinchflat.Repo
+  alias Pinchflat.Tasks.TasksQuery
   alias Pinchflat.Tasks
   alias Pinchflat.Sources.Source
   alias Pinchflat.Media.MediaItem
@@ -67,14 +68,6 @@ defmodule Pinchflat.Media do
   end
 
   @doc """
-  For a given media_item, tells you if it is pending download. This is defined as
-  the media_item satisfying `MediaQuery.pending` which you should really check out.
-
-  Intentionally does not take the `download_media` setting of the source into account.
-
-  Returns boolean()
-  """
-  @doc """
   Sets `prevent_download` for the given media item ids in one query.
   Optionally clears `last_error` when un-preventing.
 
@@ -106,6 +99,14 @@ defmodule Pinchflat.Media do
     |> then(&{&1, nil})
   end
 
+  @doc """
+  For a given media_item, tells you if it is pending download. This is defined as
+  the media_item satisfying `MediaQuery.pending` which you should really check out.
+
+  Intentionally does not take the `download_media` setting of the source into account.
+
+  Returns boolean()
+  """
   def pending_download?(%MediaItem{} = media_item) do
     media_item = Repo.preload(media_item, source: :media_profile)
 
@@ -137,6 +138,63 @@ defmodule Pinchflat.Media do
   end
 
   @doc """
+  Maps source_id -> count of downloaded media items.
+
+  Returns map()
+  """
+  def downloaded_counts_by_source do
+    MediaQuery.new()
+    |> where(^MediaQuery.downloaded())
+    |> group_by([mi], mi.source_id)
+    |> select([mi], {mi.source_id, count(mi.id)})
+    |> Repo.all()
+    |> Map.new()
+  end
+
+  @doc """
+  Lists media items for the read-only JSON API, optionally filtered by state
+  ("errored" | "pending" | "downloaded" | "downloading") and paginated with
+  limit/offset.
+
+  Returns [%MediaItem{}, ...]
+  """
+  def list_media_items_for_api(state, opts \\ []) do
+    limit = opts[:limit] || 100
+    offset = opts[:offset] || 0
+    source_id = opts[:source_id]
+
+    MediaQuery.new()
+    |> MediaQuery.require_assoc(:media_profile)
+    |> apply_state_filter(state)
+    |> apply_api_source_filter(source_id)
+    |> order_by([mi], desc: mi.id)
+    |> limit(^limit)
+    |> offset(^offset)
+    |> Repo.all()
+  end
+
+  defp apply_state_filter(query, "errored"), do: where(query, [mi], ^MediaQuery.errored())
+  defp apply_state_filter(query, "pending"), do: where(query, [mi], ^MediaQuery.pending())
+  defp apply_state_filter(query, "downloaded"), do: where(query, [mi], ^MediaQuery.downloaded())
+
+  defp apply_state_filter(query, "downloading") do
+    executing_worker_subquery =
+      from(t in Pinchflat.Tasks.Task,
+        join: j in Oban.Job,
+        on: j.id == t.job_id,
+        where: j.state == "executing" and "media_item" in j.tags and like(j.worker, "%MediaDownloadWorker"),
+        select: t.media_item_id
+      )
+
+    where(query, [mi], mi.id in subquery(executing_worker_subquery))
+  end
+
+  defp apply_state_filter(query, _), do: query
+
+  defp apply_api_source_filter(query, nil), do: query
+  defp apply_api_source_filter(query, source_id), do: where(query, [mi], mi.source_id == ^source_id)
+
+  @doc """
   Lists media items that have a recorded error, most recently errored first.
   Optionally scoped to one source. Used by the errors console (upstream #870).
 
@@ -144,17 +202,22 @@ defmodule Pinchflat.Media do
   """
   def list_errored_media_items(opts \\ []) do
     source_id = Keyword.get(opts, :source_id)
+    since = Keyword.get(opts, :since)
     limit = Keyword.get(opts, :limit, 100)
 
     MediaQuery.new()
     |> MediaQuery.require_assoc(:source)
     |> where(^MediaQuery.errored())
     |> apply_source_filter(source_id)
+    |> apply_since_filter(since)
     |> order_by([mi], desc: mi.updated_at, desc: mi.id)
     |> limit(^limit)
     |> preload(:source)
     |> Repo.all()
   end
+
+  defp apply_since_filter(query, nil), do: query
+  defp apply_since_filter(query, since), do: where(query, [mi], mi.updated_at > ^since)
 
   defp apply_source_filter(query, nil), do: query
   defp apply_source_filter(query, source_id), do: where(query, [mi], mi.source_id == ^source_id)

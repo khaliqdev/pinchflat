@@ -39,6 +39,17 @@
   </div>
 </div>
 
+<div
+  :if={@media_free_bytes && @media_free_bytes < 10 * 1024 * 1024 * 1024}
+  class="mt-4 flex items-center gap-2 rounded-md border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-amber-400"
+>
+  <.icon name="hero-exclamation-triangle" class="h-5 w-5" />
+  <span>
+    Low disk space on the downloads volume: <.readable_filesize byte_size={@media_free_bytes} /> free.
+    Downloads will fail when it fills.
+  </span>
+</div>
+
 <div class="rounded-sm border shadow-default border-strokedark bg-boxdark mt-4 p-5">
   <span class="text-2xl font-medium mb-4">Media History</span>
   <.tabbed_layout>

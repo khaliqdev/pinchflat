@@ -1,6 +1,8 @@
 defmodule PinchflatWeb.MediaErrorControllerTest do
   use PinchflatWeb.ConnCase
 
+  alias Pinchflat.Downloading.MediaDownloadWorker
+
   import Pinchflat.MediaFixtures
 
   describe "GET /errors" do
@@ -29,4 +31,23 @@ defmodule PinchflatWeb.MediaErrorControllerTest do
       assert html_response(conn, 200) =~ "No errors recorded"
     end
   end
+  describe "POST /errors/retry" do
+    test "retries pending errored items and skips ignored ones", %{conn: conn} do
+      retryable = media_item_fixture(%{title: "Retryable", last_error: "boom", media_filepath: nil})
+      skipped =
+        media_item_fixture(%{title: "Skipped", last_error: "boom", prevent_download: true, media_filepath: nil})
+
+
+      conn = post(conn, ~p"/errors/retry")
+
+      assert redirected_to(conn) == "/errors"
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Retried 1 item(s)"
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "skipped 1"
+
+      assert Repo.reload!(retryable).last_error == nil
+      assert Repo.reload!(skipped).last_error == "boom"
+      assert_enqueued worker: MediaDownloadWorker, args: %{"id" => retryable.id}
+    end
+  end
+
 end

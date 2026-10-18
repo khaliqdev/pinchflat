@@ -85,7 +85,8 @@ config :pinchflat, Oban,
          [
            {"0 1 * * *", Pinchflat.Downloading.MediaRetentionWorker},
            {"0 2 * * *", Pinchflat.Downloading.MediaQualityUpgradeWorker},
-           {"30 3 * * *", Pinchflat.Database.DatabaseMaintenanceWorker}
+           {"30 3 * * *", Pinchflat.Database.DatabaseMaintenanceWorker},
+           {"*/15 * * * *", Pinchflat.Lifecycle.Notifications.FailureDigestWorker}
          ]}
   ]
 
@@ -130,6 +131,8 @@ if config_env() == :prod do
   {db_pool_size, _} = Integer.parse(System.get_env("DB_POOL_SIZE", "10"))
   {db_busy_timeout_ms, _} = Integer.parse(System.get_env("DB_BUSY_TIMEOUT_MS", "30000"))
 
+  backup_directory = System.get_env("BACKUP_DIRECTORY", Path.join([Path.dirname(db_path), "backups"]))
+
   config :pinchflat, Pinchflat.Repo,
     database: db_path,
     journal_mode: journal_mode,
@@ -142,6 +145,7 @@ if config_env() == :prod do
     queue_interval: 45_000
 
   config :pinchflat, Pinchflat.PromEx, disabled: !enable_prometheus
+  config :pinchflat, backup_directory: backup_directory
 
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you

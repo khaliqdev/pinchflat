@@ -41,4 +41,14 @@ defmodule Pinchflat.RateLimitTest do
       assert_in_delta RateLimit.seconds_remaining(now), 600, 5
     end
   end
+
+  describe "broadcasts" do
+    test "tripping the cooldown broadcasts on the rate_limit topic" do
+      PinchflatWeb.Endpoint.subscribe("rate_limit")
+
+      RateLimit.trip!(15)
+
+      assert_receive %{topic: "rate_limit", event: "change"}, 100
+    end
+  end
 end

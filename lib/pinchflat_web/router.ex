@@ -27,6 +27,17 @@ defmodule PinchflatWeb.Router do
     get "/sources/opml", Podcasts.PodcastController, :opml_feed
   end
 
+  # Read-only JSON API. Same route_token auth as the podcast feeds; see the
+  # wiki/env docs for how to find your token
+  scope "/api/v1", PinchflatWeb.Api, as: :api_v1 do
+    pipe_through [:api, :maybe_basic_auth, :token_protected_route]
+
+    get "/sources", V1Controller, :sources
+    get "/sources/:id/media", V1Controller, :source_media
+    get "/media_items", V1Controller, :media_items
+    get "/media_items/:id", V1Controller, :media_item
+  end
+
   # Routes in here _may not be_ protected by basic auth. This is necessary for
   # media streaming to work for RSS podcast feeds.
   scope "/", PinchflatWeb do
@@ -52,6 +63,7 @@ defmodule PinchflatWeb.Router do
     get "/download_logs", Settings.SettingController, :download_logs
 
     get "/errors", MediaErrors.MediaErrorController, :index
+    post "/errors/retry", MediaErrors.MediaErrorController, :retry
 
     post "/sources/:id/check_now", Sources.SourceController, :check_now
     post "/sources/:id/delete_pending", Sources.SourceController, :delete_pending

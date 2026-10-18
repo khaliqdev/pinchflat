@@ -4,6 +4,7 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
 
   alias Pinchflat.Repo
   alias Pinchflat.Media
+  alias Pinchflat.Tasks.TasksQuery
   alias Pinchflat.Sources
   alias Pinchflat.Utils.NumberUtils
 
@@ -100,7 +101,7 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
                 {media_item.title}
               </.subtle_link>
             </span>
-            <.status_badge media_item={media_item} />
+            <.status_badge media_item={media_item} downloading_ids={@downloading_ids} />
           </section>
         </:col>
         <:col :let={media_item} :if={@media_state == "other"} label="Download Prevented?">
@@ -122,6 +123,7 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
 
   def mount(_params, session, socket) do
     PinchflatWeb.Endpoint.subscribe("media_table")
+    PinchflatWeb.Endpoint.subscribe("job:state")
 
     page = 1
     media_state = session["media_state"]
@@ -136,19 +138,21 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
           base_query: base_query,
           source: source,
           media_state: media_state,
-          selected_ids: MapSet.new()
+          selected_ids: MapSet.new(),
+          downloading_ids: downloading_ids()
         }
       )
 
     {:ok, assign(socket, new_assigns)}
   end
 
-  defp status_badge(assigns) do
+  defp status_badge(%{downloading_ids: _} = assigns) do
     assigns =
       assign(
         assigns,
         :status,
         cond do
+          MapSet.member?(assigns.downloading_ids, assigns.media_item.id) -> :downloading
           assigns.media_item.last_error -> :failed
           assigns.media_item.prevent_download -> :ignored
           assigns.media_item.media_filepath -> :downloaded
@@ -159,6 +163,7 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
     ~H"""
     <span class={[
       "shrink-0 rounded-md border px-1.5 py-0.5 text-xs font-medium leading-4",
+      @status == :downloading && "border-sky-500/20 bg-sky-500/10 text-sky-400 animate-pulse",
       @status == :downloaded && "border-emerald-500/20 bg-emerald-500/10 text-emerald-400",
       @status == :failed && "border-red-500/20 bg-red-500/10 text-red-400",
       @status == :ignored && "border-strokedark bg-meta-4 text-bodydark2",
@@ -174,7 +179,7 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
     new_page = assigns.page + direction
     new_assigns = fetch_pagination_attributes(assigns.base_query, new_page, assigns.search_term)
 
-    {:noreply, assign(socket, new_assigns)}
+    {:noreply, assign(socket, Map.put(new_assigns, :downloading_ids, downloading_ids()))}
   end
 
   def handle_event("select_row", %{"id" => id}, %{assigns: assigns} = socket) do
@@ -216,7 +221,7 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
     search_term = Map.get(params, "q", nil)
     new_assigns = fetch_pagination_attributes(socket.assigns.base_query, 1, search_term)
 
-    {:noreply, assign(socket, new_assigns)}
+    {:noreply, assign(socket, Map.put(new_assigns, :downloading_ids, downloading_ids()))}
   end
 
   # This, along with the handle_info below, is a pattern to reload _all_
@@ -227,10 +232,33 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
     {:noreply, socket}
   end
 
-  def handle_info(%{topic: "media_table", event: "reload"}, %{assigns: assigns} = socket) do
+  def handle_info(%{topic: "media_table", event: "reload"}, socket) do
+    refetch(socket)
+  end
+
+  # Fires on every Oban job state change (see Telemetry.job_state_change_broadcast),
+  # which is how downloads starting/stopping reach this table without polling
+  def handle_info(%{topic: "job:state", event: "change"}, socket) do
+    refetch(socket)
+  end
+
+  defp refetch(%{assigns: assigns} = socket) do
     new_assigns = fetch_pagination_attributes(assigns.base_query, assigns.page, assigns.search_term)
 
-    {:noreply, assign(socket, new_assigns)}
+    {:noreply, assign(socket, Map.put(new_assigns, :downloading_ids, downloading_ids()))}
+  end
+
+  # Items with an actively-executing MediaDownloadWorker job. The executing set is
+  # tiny by construction (media_fetching concurrency is deliberately low)
+  defp downloading_ids do
+    from(t in Pinchflat.Tasks.Task,
+      join: j in Oban.Job,
+      on: j.id == t.job_id,
+      where: j.state == "executing" and "media_item" in j.tags and like(j.worker, "%MediaDownloadWorker"),
+      select: t.media_item_id
+    )
+    |> Repo.all()
+    |> MapSet.new()
   end
 
   defp fetch_pagination_attributes(base_query, page, ""), do: fetch_pagination_attributes(base_query, page, nil)

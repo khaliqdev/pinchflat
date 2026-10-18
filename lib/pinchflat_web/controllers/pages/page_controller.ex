@@ -3,6 +3,7 @@ defmodule PinchflatWeb.Pages.PageController do
   use Pinchflat.Media.MediaQuery
 
   alias Pinchflat.Repo
+  alias Pinchflat.Utils.DiskUtils
   alias Pinchflat.Sources.Source
   alias Pinchflat.Profiles.MediaProfile
 
@@ -27,7 +28,8 @@ defmodule PinchflatWeb.Pages.PageController do
       media_profile_count: Repo.aggregate(MediaProfile, :count, :id),
       source_count: Repo.aggregate(Source, :count, :id),
       media_item_size: Repo.aggregate(downloaded_media_items, :sum, :media_size_bytes),
-      media_item_count: Repo.aggregate(downloaded_media_items, :count, :id)
+      media_item_count: Repo.aggregate(downloaded_media_items, :count, :id),
+      media_free_bytes: DiskUtils.free_bytes(Application.get_env(:pinchflat, :media_directory))
     )
   end
 
