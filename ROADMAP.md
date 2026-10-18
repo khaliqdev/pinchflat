@@ -97,4 +97,3 @@ the runtime user.
 - Dev loop: `docker compose up phx` → http://localhost:4008 (mix test inside container).
 - Every fix ships with a test in `test/pinchflat/...` mirroring the module.
 - Small PR-style commits on fix branches (`fix/878-cookies-all-ops`), merged to `personal`.
-- Keep `master` clean for upstream sync: `git fetch upstream && git merge upstream/master` into master only.

@@ -1,30 +1,3 @@
-> [!IMPORTANT]  
-> (2025-02-14) [zakkarry](https://github.com/sponsors/zakkarry), who is a collaborator on [cross-seed](https://github.com/cross-seed/cross-seed) and an extremely helpful community member in general, is facing hard times due to medical debt and family illness. If you're able, please consider [sponsoring him on GitHub](https://github.com/sponsors/zakkarry) or donating via [buymeacoffee](https://tip.ary.dev). Tell him I sent you!
-
-<p align="center">  
-  <img 
-    src="priv/static/images/originals/logo-white-wordmark-with-background.png" 
-    alt="Pinchflat Logo by @hernandito"
-    width="700" 
-  />
-</p>
-
-<p align="center">  
-  <sup>
-    <em>logo by <a href="https://github.com/hernandito" target="_blank">@hernandito</a></em>
-  </sup>
-</p>
-
-<div align="center">
-
-[![](https://img.shields.io/github/license/kieraneglin/pinchflat?style=for-the-badge&color=ee512b)](LICENSE)
-[![](https://img.shields.io/github/v/release/kieraneglin/pinchflat?style=for-the-badge&color=purple)](https://github.com/kieraneglin/pinchflat/releases)
-[![](https://img.shields.io/static/v1?style=for-the-badge&logo=discord&message=Chat&color=5865F2&label=Discord)](https://discord.gg/j7T6dCuwU4)
-[![](https://img.shields.io/github/actions/workflow/status/kieraneglin/pinchflat/lint_and_test.yml?style=for-the-badge)](#)
-[![](https://img.shields.io/static/v1?label=Dev%20Containers&message=Open&color=blue&logo=visualstudiocode&style=for-the-badge)](https://vscode.dev/redirect?url=vscode://ms-vscode-remote.remote-containers/cloneInVolume?url=https://github.com/kieraneglin/pinchflat)
-
-</div>
-
 # re:Pinchflat
 
 A personal fork of [Pinchflat](https://github.com/kieraneglin/pinchflat) — maintained
