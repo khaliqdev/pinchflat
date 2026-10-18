@@ -16,6 +16,7 @@ defmodule Pinchflat.Downloading.MediaDownloader do
   alias Pinchflat.Metadata.MetadataParser
   alias Pinchflat.Metadata.MetadataFileHelpers
   alias Pinchflat.Utils.FilesystemUtils
+  alias Pinchflat.Downloading.DownloadProgress
   alias Pinchflat.Downloading.DownloadOptionBuilder
 
   alias Pinchflat.YtDlp.Media, as: YtDlpMedia
@@ -32,7 +33,15 @@ defmodule Pinchflat.Downloading.MediaDownloader do
   Returns {:ok, %MediaItem{}} | {:error, atom(), String.t()} | {:recovered, %MediaItem{}, String.t()}
   """
   def download_for_media_item(%MediaItem{} = media_item, override_opts \\ []) do
-    case attempt_download_and_update_for_media_item(media_item, override_opts) do
+    result = attempt_download_and_update_for_media_item(media_item, override_opts)
+
+    # Runs once for every branch below (ok/error/recovered). Cookie retries
+    # happen inside the attempt, restarting progress for the same id with
+    # later-wins ETS semantics, so clearing between attempts is not wanted.
+    # A SIGKILLed worker never gets here - the ETS TTL sweep covers that.
+    DownloadProgress.clear(media_item.id)
+
+    case result do
       {:ok, media_item} ->
         # Returns {:ok, %MediaItem{}}
         Media.update_media_item(media_item, %{last_error: nil})
@@ -172,7 +181,13 @@ defmodule Pinchflat.Downloading.MediaDownloader do
     source_uses_cookies = Sources.use_cookies?(item_with_preloads.source, :downloading)
     should_use_cookies = force_use_cookies || source_uses_cookies
 
-    runner_opts = [output_filepath: output_filepath, use_cookies: should_use_cookies]
+    runner_opts = [
+      output_filepath: output_filepath,
+      use_cookies: should_use_cookies,
+      # Appended last (tests assert :output_filepath is the head of addl_opts)
+      # so CommandRunner streams progress lines for the live UI
+      progress: fn line -> DownloadProgress.record_line(item_with_preloads.id, line) end
+    ]
 
     case {YtDlpMedia.get_downloadable_status(url, use_cookies: should_use_cookies), should_use_cookies} do
       {{:ok, :downloadable}, _} ->

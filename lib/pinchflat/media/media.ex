@@ -174,6 +174,27 @@ defmodule Pinchflat.Media do
   end
 
   @doc """
+  Returns the media_items with an actively-executing MediaDownloadWorker job,
+  selecting only the columns the home-page downloads card needs. Row
+  membership is DB-driven (not ETS-driven) so cancelled/killed jobs drop out
+  via job:state events while progress data is merely decoration on top.
+
+  Returns [%MediaItem{}, ...]
+  """
+  def downloading_media_items do
+    from(mi in MediaItem,
+      join: t in Pinchflat.Tasks.Task,
+      on: t.media_item_id == mi.id,
+      join: j in Oban.Job,
+      on: j.id == t.job_id,
+      where: j.state == "executing" and "media_item" in j.tags and like(j.worker, "%MediaDownloadWorker"),
+      select: [:id, :title, :uuid, :media_id, :thumbnail_filepath, :source_id],
+      distinct: true
+    )
+    |> Repo.all()
+  end
+
+  @doc """
   Maps source_id -> count of downloaded media items.
 
   Returns map()

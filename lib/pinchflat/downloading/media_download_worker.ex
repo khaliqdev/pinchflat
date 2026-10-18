@@ -15,6 +15,7 @@ defmodule Pinchflat.Downloading.MediaDownloadWorker do
   alias Pinchflat.Media
   alias Pinchflat.Media.FileSyncing
   alias Pinchflat.Downloading.MediaDownloader
+  alias Pinchflat.Downloading.DownloadProgress
 
   alias Pinchflat.Lifecycle.UserScripts.CommandRunner, as: UserScriptRunner
 
@@ -56,8 +57,15 @@ defmodule Pinchflat.Downloading.MediaDownloadWorker do
       :ok
     end
   rescue
-    Ecto.NoResultsError -> Logger.info("#{__MODULE__} discarded: media item #{media_item_id} not found")
-    Ecto.StaleEntryError -> Logger.info("#{__MODULE__} discarded: media item #{media_item_id} stale")
+    # Defense-in-depth: these fire from fetch_and_run_prevent_download_user_script,
+    # before MediaDownloader's own clear runs
+    Ecto.NoResultsError ->
+      DownloadProgress.clear(media_item_id)
+      Logger.info("#{__MODULE__} discarded: media item #{media_item_id} not found")
+
+    Ecto.StaleEntryError ->
+      DownloadProgress.clear(media_item_id)
+      Logger.info("#{__MODULE__} discarded: media item #{media_item_id} stale")
   end
 
   # If this is a quality upgrade, only check if the source is set to download media

@@ -24,6 +24,9 @@ defmodule Pinchflat.Application do
       Pinchflat.Boot.PostJobStartupTasks,
       {DNSCluster, query: Application.get_env(:pinchflat, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: Pinchflat.PubSub},
+      # Owns the named ETS table LiveViews and download workers read/write,
+      # so it must be up before the endpoint starts rendering pages
+      Pinchflat.Downloading.DownloadProgress,
       # Start the Finch HTTP client for sending emails
       {Finch, name: Pinchflat.Finch},
       # Start a worker by calling: Pinchflat.Worker.start_link(arg)

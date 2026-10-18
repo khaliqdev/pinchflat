@@ -2,6 +2,7 @@ defmodule Pinchflat.YtDlp.CommandRunnerTest do
   use Pinchflat.DataCase
 
   alias Pinchflat.Settings
+  alias Pinchflat.RateLimit
   alias Pinchflat.Utils.FilesystemUtils
 
   alias Pinchflat.YtDlp.CommandRunner, as: Runner
@@ -229,6 +230,136 @@ defmodule Pinchflat.YtDlp.CommandRunnerTest do
 
         assert String.contains?(output, "Restart to complete update")
       end)
+    end
+  end
+
+  describe "run/5 with a :progress callback" do
+    @progress_emitter Path.join([File.cwd!(), "/test/support/scripts/yt-dlp-mocks/progress_emitter.sh"])
+    @progress_emitter_429 Path.join([File.cwd!(), "/test/support/scripts/yt-dlp-mocks/progress_emitter_429.sh"])
+    @progress_emitter_fragment Path.join([File.cwd!(), "/test/support/scripts/yt-dlp-mocks/progress_emitter_fragment.sh"])
+
+    test "forwards every emitted line to the callback in order and returns the print-to-file contents" do
+      wrap_executable(@progress_emitter, fn ->
+        {result, lines} = run_collecting_lines(@media_url, :download, [:no_progress, :no_simulate], "after_move:%()j")
+
+        assert {:ok, output} = result
+        assert String.contains?(output, "Finished Video")
+
+        assert [junk, json1, json2, json3, json4, warning] = lines
+
+        # The >4096-byte junk line is reassembled from :noeol fragments and
+        # does not corrupt the lines that follow it
+        assert byte_size(junk) > 4096
+        assert json1 =~ "total_bytes"
+        assert json2 =~ "total_bytes_estimate"
+        refute json3 =~ "total_bytes"
+        assert json4 =~ "45.32MiB"
+        assert warning =~ "WARNING"
+
+        # Merged stderr ordering is preserved relative to stdout lines
+        assert Enum.count(lines) == 6
+      end)
+    end
+
+    test "flushes a trailing :noeol fragment on exit so it reaches the callback and the error output" do
+      RateLimit.clear!()
+      on_exit(&RateLimit.clear!/0)
+
+      wrap_executable(@progress_emitter_fragment, fn ->
+        {result, lines} = run_collecting_lines(@media_url, :download, [:no_progress, :no_simulate], "after_move:%()j")
+
+        assert {:error, output, 1} = result
+
+        # The unterminated stderr line is forwarded to the callback as the
+        # final line AND kept in the accumulated output (429 detection
+        # depends on it - System.cmd never drops trailing bytes)
+        assert [_json_line, fragment] = lines
+        assert fragment =~ "HTTP Error 429"
+        assert String.contains?(output, "HTTP Error 429")
+
+        assert RateLimit.tripped?()
+      end)
+    end
+
+    test "returns error output (with stderr) and trips the rate limit on a streaming 429" do
+      RateLimit.clear!()
+      on_exit(&RateLimit.clear!/0)
+
+      wrap_executable(@progress_emitter_429, fn ->
+        {result, lines} = run_collecting_lines(@media_url, :download, [:no_progress, :no_simulate], "after_move:%()j")
+
+        assert {:error, output, 1} = result
+        assert String.contains?(output, "HTTP Error 429")
+
+        # The stdout progress line and the merged stderr error line
+        assert [progress_line, error_line] = lines
+        assert progress_line =~ "downloaded_bytes"
+        assert error_line =~ "HTTP Error 429"
+
+        assert RateLimit.tripped?()
+      end)
+    end
+
+    test "strips :no_progress, adds the progress flags, and keeps the URL as the first argument" do
+      assert {:ok, output} = Runner.run(@media_url, :download, [:no_progress], "%(id)s", progress: fn _line -> :ok end)
+
+      refute String.contains?(output, "--no-progress")
+      assert String.contains?(output, "--progress")
+      assert String.contains?(output, "--newline")
+      assert String.contains?(output, "--progress-template download:%(progress.{status,downloaded_bytes,total_bytes,total_bytes_estimate,_speed_str,_eta_str})j")
+      assert String.contains?(output, "--progress-delta 1")
+
+      # Arg order mirrors the System.cmd invocation (URL first, like the
+      # "#{@media_url} --ignore-errors" assertions in the run/4 describes)
+      assert String.contains?(output, "#{@media_url} --print-to-file")
+    end
+
+    test "a raising callback does not abort the port loop" do
+      wrap_executable(@progress_emitter, fn ->
+        result =
+          Runner.run(@media_url, :download, [:no_progress], "after_move:%()j", progress: fn line ->
+            send(self(), {:progress_line, line})
+            raise "callback exploded"
+          end)
+
+        assert {:ok, output} = result
+        assert String.contains?(output, "Finished Video")
+
+        # Every emitted line was still observed even though the callback
+        # raised on each one
+        assert length(receive_all()) == 6
+      end)
+    end
+
+    test "actions without :progress keep using the System.cmd path unchanged" do
+      # repeater.sh (the default test executable) echoes its args to the
+      # print-to-file path - this is the untouched non-streaming contract
+      assert {:ok, output} = Runner.run(@media_url, :download, [:no_progress], "%(id)s")
+
+      assert String.contains?(output, "--no-progress")
+      refute String.contains?(output, "--progress-template")
+    end
+  end
+
+  # Runs the command with a callback that mirrors every line back to the
+  # test process as a message, returning {run_result, lines_in_order}
+  defp run_collecting_lines(url, action, command_opts, output_template) do
+    result = Runner.run(url, action, command_opts, output_template, progress: fn line -> send(self(), {:progress_line, line}) end)
+
+    lines = Enum.map(receive_all(), fn {:progress_line, line} -> line end)
+
+    {result, lines}
+  end
+
+  defp receive_all do
+    receive_all([])
+  end
+
+  defp receive_all(acc) do
+    receive do
+      {:progress_line, line} -> receive_all([{:progress_line, line} | acc])
+    after
+      100 -> Enum.reverse(acc)
     end
   end
 

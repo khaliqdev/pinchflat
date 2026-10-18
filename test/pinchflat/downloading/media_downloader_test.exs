@@ -455,6 +455,106 @@ defmodule Pinchflat.Downloading.MediaDownloaderTest do
     end
   end
 
+  describe "download_for_media_item/3 when testing download progress" do
+    alias Pinchflat.Downloading.DownloadProgress
+
+    setup do
+      DownloadProgress.reset!()
+
+      on_exit(&DownloadProgress.reset!/0)
+    end
+
+    test "passes a :progress callback to the download runner which records lines", %{media_item: media_item} do
+      expect(YtDlpRunnerMock, :run, 3, fn
+        _url, :get_downloadable_status, _opts, _ot, addl ->
+          refute Keyword.has_key?(addl, :progress)
+          {:ok, "{}"}
+
+        _url, :download, _opts, _ot, addl ->
+          assert [{:output_filepath, _filepath}, {:use_cookies, false}, {:progress, callback}] = addl
+          assert is_function(callback, 1)
+
+          callback.(~s({"downloaded_bytes": 524288, "total_bytes": 1048576, "_speed_str": "2.00MiB/s", "_eta_str": "00:30"}))
+
+          # Mid-download, the row holds the latest percent
+          assert %{percent: 50.0, speed: "2.00MiB/s", eta: "00:30"} = DownloadProgress.get(media_item.id)
+
+          callback.(~s({"downloaded_bytes": 1048576, "total_bytes": 1048576}))
+
+          {:ok, render_metadata(:media_metadata)}
+
+        _url, :download_thumbnail, _opts, _ot, _addl ->
+          {:ok, ""}
+      end)
+
+      assert {:ok, _} = MediaDownloader.download_for_media_item(media_item)
+
+      # And it's cleared once the download returns
+      assert DownloadProgress.get(media_item.id) == nil
+    end
+
+    test "clears the progress row when the download errors", %{media_item: media_item} do
+      expect(YtDlpRunnerMock, :run, 2, fn
+        _url, :get_downloadable_status, _opts, _ot, _addl -> {:ok, "{}"}
+
+        _url, :download, _opts, _ot, addl ->
+          Keyword.get(addl, :progress).(~s({"downloaded_bytes": 10, "total_bytes": 100}))
+          {:error, :some_error, 1}
+      end)
+
+      assert {:error, :download_failed, :some_error} = MediaDownloader.download_for_media_item(media_item)
+      assert DownloadProgress.get(media_item.id) == nil
+    end
+
+    test "clears the progress row when the download recovers", %{media_item: media_item} do
+      message = "Unable to communicate with SponsorBlock"
+
+      expect(YtDlpRunnerMock, :run, 3, fn
+        _url, :get_downloadable_status, _opts, _ot, _addl -> {:ok, "{}"}
+
+        _url, :download, _opts, _ot, addl ->
+          Keyword.get(addl, :progress).(~s({"downloaded_bytes": 10, "total_bytes": 100}))
+          [{:output_filepath, filepath} | _] = addl
+          File.write(filepath, render_metadata(:media_metadata))
+
+          {:error, message, 1}
+
+        _url, :download_thumbnail, _opts, _ot, _addl -> {:ok, ""}
+      end)
+
+      assert {:recovered, _media_item, ^message} = MediaDownloader.download_for_media_item(media_item)
+      assert DownloadProgress.get(media_item.id) == nil
+    end
+
+    test "restarted progress (cookie retry) is later-wins for the same media item" do
+      expect(YtDlpRunnerMock, :run, 4, fn
+        _url, :get_downloadable_status, _opts, _ot, [use_cookies: false] ->
+          {:error, "Sign in to confirm you're a bot", 1}
+
+        _url, :get_downloadable_status, _opts, _ot, [use_cookies: true] ->
+          {:ok, "{}"}
+
+        _url, :download, _opts, _ot, addl ->
+          assert {:use_cookies, true} in addl
+
+          callback = Keyword.get(addl, :progress)
+          callback.(~s({"downloaded_bytes": 100, "total_bytes": 1000}))
+          callback.(~s({"downloaded_bytes": 900, "total_bytes": 1000}))
+
+          {:ok, render_metadata(:media_metadata)}
+
+        _url, :download_thumbnail, _opts, _ot, _addl ->
+          {:ok, ""}
+      end)
+
+      source = source_fixture(%{cookie_behaviour: :when_needed})
+      media_item = media_item_fixture(%{source_id: source.id})
+
+      assert {:ok, _} = MediaDownloader.download_for_media_item(media_item)
+      assert DownloadProgress.get(media_item.id) == nil
+    end
+  end
+
   describe "download_for_media_item/3 when testing media_item attributes" do
     setup do
       stub(YtDlpRunnerMock, :run, fn

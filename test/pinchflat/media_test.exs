@@ -407,6 +407,60 @@ defmodule Pinchflat.MediaTest do
     end
   end
 
+  describe "downloading_media_items/0" do
+    alias Pinchflat.Downloading.MediaDownloadWorker
+    alias Pinchflat.FastIndexing.FastIndexingWorker
+
+    test "returns media items with an executing MediaDownloadWorker job" do
+      source = source_fixture()
+      media_item = media_item_fixture(source_id: source.id)
+      {_source, _media_item, _task, _job} = create_media_item_job(media_item, :executing)
+
+      assert [%MediaItem{} = item] = Media.downloading_media_items()
+      assert item.id == media_item.id
+      assert item.title == media_item.title
+      assert item.uuid == media_item.uuid
+      assert item.media_id == media_item.media_id
+      assert item.thumbnail_filepath == media_item.thumbnail_filepath
+      assert item.source_id == media_item.source_id
+    end
+
+    test "excludes jobs that are not executing" do
+      source = source_fixture()
+      media_item = media_item_fixture(source_id: source.id)
+      {_source, _media_item, _task, _job} = create_media_item_job(media_item, :scheduled)
+
+      source_two = source_fixture()
+      media_item_two = media_item_fixture(source_id: source_two.id)
+      {_source, _media_item, _task, _job} = create_media_item_job(media_item_two, :completed)
+
+      assert Media.downloading_media_items() == []
+    end
+
+    test "excludes executing jobs from other workers" do
+      source = source_fixture()
+      {:ok, task} = FastIndexingWorker.kickoff_with_task(source)
+
+      Oban.Job
+      |> where([j], j.id == ^task.job_id)
+      |> Repo.update_all(set: [state: "executing"])
+
+      assert Media.downloading_media_items() == []
+    end
+
+    defp create_media_item_job(media_item, job_state) do
+      {:ok, task} = MediaDownloadWorker.kickoff_with_task(media_item)
+
+      Oban.Job
+      |> where([j], j.id == ^task.job_id)
+      |> Repo.update_all(set: [state: to_string(job_state)])
+
+      job = Repo.get!(Oban.Job, task.job_id)
+
+      {media_item.source, media_item, task, job}
+    end
+  end
+
   describe "list_errored_media_items/1" do
     test "returns only media items with errors, oldest first (digest paging)" do
       errored_now = media_item_fixture(%{last_error: "boom now"})
