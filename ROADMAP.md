@@ -92,6 +92,55 @@ the runtime user.
 - Settings surface for new engine knobs (auto-update, concurrency, cookies health check).
 - Optional: simple REST API (#435/#791) for Home Assistant integrations.
 
+## Phase 4 — Source-add preview scan (specified, ready to build)
+
+Show how many videos a source URL will download **before saving**, based on the
+form's settings. Motivation: committing a channel blind means discovering a
+5,000-video back-catalogue after the index has already started.
+
+### 4.1 Scan preview on the source form
+
+**How it works**
+- New `Pinchflat.Sources.SourceScanner` context: one flat yt-dlp call per scan,
+  reusing `YtDlp.MediaCollection.get_source_metadata/3` (`--skip-download`,
+  `playlist_items: 0`) — fetches the channel/playlist listing without touching
+  individual videos (~1 listing request per 100 videos; a 3k-video channel is
+  seconds-to-a-minute).
+- Must run through `CommandRunner` so scans inherit cookies and the 429 global
+  RateLimit cooldown — a scan is real YouTube traffic.
+- Count math applied in order: total entries found → `title_filter_regex` →
+  shorts/livestream behaviour (duration + live-status heuristics) →
+  `download_count` cap. Render a breakdown ("-112 by title filter, -230 shorts…").
+
+**Honest limits (say them in the UI)**
+- Description regex and members-only visibility CANNOT be applied cheaply — they
+  need per-video metadata (that is what the full index fetches); members-only
+  also depends on cookies present at scan time. Output is an estimate: show
+  "≈N of M found will download; final count lands after the first index."
+
+**UI + wiring**
+- "Preview scan" button on new (and edit) source form; JSON endpoint
+  (`POST /sources/scan`) + vanilla JS per the confirm_dialog pattern — do NOT
+  wrap the form in a LiveView.
+- Spinner while scanning; v1 uses a hard timeout (e.g. 90s) and surfaces a
+  "channel too large for preview" message on timeout. Follow-up: move scan to an
+  Oban job with a "scan running…" indicator for huge channels.
+
+**Done when**
+- With a real URL, the form shows found/matching counts + breakdown without saving;
+  scan traffic respects cookies + 429 cooldown; timeout path handled; tests cover
+  the count math with mocked yt-dlp output and the endpoint (including CSRF).
+
+### 4.2 Follow-up: "add paused" (complementary, optional)
+
+- Save the source with downloads paused, let the first index run, show the TRUE
+  pending count (includes description/members-only filtering), then enable with
+  one click. Zero new machinery — uses the real pipeline; pairs with 4.1
+  (quick estimate at form time, exact numbers post-index).
+
+Explicitly out of scope for both: live progress of the scan listing itself,
+caching scan results across form edits.
+
 ## Working agreements
 
 - Dev loop: `docker compose up phx` → http://localhost:4008 (mix test inside container).
