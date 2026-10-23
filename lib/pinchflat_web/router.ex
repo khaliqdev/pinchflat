@@ -64,6 +64,7 @@ defmodule PinchflatWeb.Router do
 
     get "/errors", MediaErrors.MediaErrorController, :index
     post "/errors/retry", MediaErrors.MediaErrorController, :retry
+    post "/errors/retry-selected", MediaErrors.MediaErrorController, :retry_selected
 
     post "/sources/:id/check_now", Sources.SourceController, :check_now
     post "/sources/:id/delete_pending", Sources.SourceController, :delete_pending

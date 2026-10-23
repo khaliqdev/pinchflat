@@ -23,7 +23,11 @@
     <.link
       href={~p"/media_profiles/#{@media_profile}"}
       method="delete"
-      data-confirm="Are you sure you want to delete this profile and all its sources (leaving files in place)? This cannot be undone."
+      data-confirm-dialog
+      data-confirm-title="Delete profile?"
+      data-confirm-message="Are you sure you want to delete this profile and all its sources (leaving files in place)? This cannot be undone."
+      data-confirm-confirm-text="Delete"
+      data-confirm-kind="danger"
     >
       Delete Profile
     </.link>
@@ -32,7 +36,11 @@
     <.link
       href={~p"/media_profiles/#{@media_profile}?delete_files=true"}
       method="delete"
-      data-confirm="Are you sure you want to delete this profile, all its sources, and its files on disk? This cannot be undone."
+      data-confirm-dialog
+      data-confirm-title="Delete profile and files?"
+      data-confirm-message="Are you sure you want to delete this profile, all its sources, and its files on disk? This cannot be undone."
+      data-confirm-confirm-text="Delete"
+      data-confirm-kind="danger"
       class="mt-5 md:mt-0"
     >
       Delete Profile + Files

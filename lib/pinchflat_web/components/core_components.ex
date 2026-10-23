@@ -92,6 +92,77 @@ defmodule PinchflatWeb.CoreComponents do
   end
 
   @doc """
+  Renders the app-wide confirm dialog that replaces the browser's native
+  `confirm()`. Rendered ONCE from the root layout; triggers anywhere in the
+  app just carry data attributes (behavior lives in assets/js/confirm_dialog.js):
+
+    * `data-confirm-dialog` - marks the triggering element
+    * `data-confirm-title` - optional heading
+    * `data-confirm-message` - optional body copy; `{count}` is replaced with
+      the number of checked `selected_ids[]` boxes in the trigger's form
+    * `data-confirm-confirm-text` / `data-confirm-cancel-text` - button labels
+    * `data-confirm-kind="danger"` - renders the confirm button in red
+
+  Confirming replays the trigger's own action: `data-method` links submit a
+  POST form (mirroring phoenix_html), form submit buttons submit their form,
+  and plain links navigate. Cancel closes the dialog and performs no action.
+
+  ## Examples
+
+      <.link href={~p"/things/1"} method="delete" data-confirm-dialog
+        data-confirm-title="Delete thing?" data-confirm-message="This cannot be undone."
+        data-confirm-confirm-text="Delete" data-confirm-kind="danger">
+        Delete
+      </.link>
+  """
+  attr :id, :string, default: "confirm-dialog"
+
+  def confirm_dialog(assigns) do
+    ~H"""
+    <div
+      id={@id}
+      data-confirm-dialog-root
+      class="fixed inset-0 z-99999 hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={"#{@id}-title"}
+      aria-describedby={"#{@id}-description"}
+    >
+      <div id={"#{@id}-bg"} class="absolute inset-0 bg-black-2/80" aria-hidden="true"></div>
+      <div class="absolute inset-0 flex items-center justify-center overflow-y-auto p-4">
+        <div
+          id={"#{@id}-container"}
+          class="w-full max-w-md rounded-md border border-stroke bg-white p-6 shadow-default dark:border-strokedark dark:bg-boxdark"
+        >
+          <h3 id={"#{@id}-title"} data-confirm-title class="text-title-sm font-bold text-black dark:text-white">
+            {gettext("Please confirm")}
+          </h3>
+          <p id={"#{@id}-description"} data-confirm-description class="mt-2 text-sm leading-6 text-bodydark2">
+            {gettext("Are you sure you want to continue?")}
+          </p>
+          <div class="mt-6 flex items-center justify-end gap-3">
+            <button
+              type="button"
+              data-confirm-cancel
+              class="rounded-md border border-stroke px-3 py-1.5 text-sm font-medium text-bodydark2 hover:text-bodydark1 dark:border-strokedark"
+            >
+              {gettext("Cancel")}
+            </button>
+            <button
+              type="button"
+              data-confirm-confirm
+              class="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white hover:bg-opacity-90"
+            >
+              {gettext("Confirm")}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
   Renders flash notices.
 
   ## Examples

@@ -24,6 +24,37 @@ defmodule PinchflatWeb.MediaErrors.MediaErrorController do
     |> redirect(to: ~p"/errors")
   end
 
+  @doc """
+  Retries only the checkbox-selected items from the errors console. Same gate
+  as retry/2: the selection is first narrowed to items on the errored batch
+  (the page only ever renders the first 100), then to items the worker would
+  actually act on via pending_download_ids_for/1.
+  """
+  def retry_selected(conn, params) do
+    selected_ids = parse_selected_ids(params["selected_ids"])
+
+    if Enum.empty?(selected_ids) do
+      redirect(conn, to: ~p"/errors")
+    else
+      source_id = parse_source_id(params["source_id"])
+      errored_items = Media.list_errored_media_items(source_id: source_id)
+      selected_on_page = Enum.filter(errored_items, &(&1.id in selected_ids))
+
+      retryable_ids = Media.pending_download_ids_for(Enum.map(selected_on_page, & &1.id))
+      {retryable, _} = Enum.split_with(selected_on_page, &(&1.id in retryable_ids))
+      skipped = length(selected_ids) - length(retryable)
+
+      Enum.each(retryable, fn item ->
+        Media.update_media_item(item, %{last_error: nil})
+        MediaDownloadWorker.kickoff_with_task(item)
+      end)
+
+      conn
+      |> put_flash(:info, "Retried #{length(retryable)} item(s) (skipped #{skipped} ignored or already downloaded)")
+      |> redirect(to: ~p"/errors")
+    end
+  end
+
   def index(conn, params) do
     source_id = parse_source_id(params["source_id"])
 
@@ -43,4 +74,23 @@ defmodule PinchflatWeb.MediaErrors.MediaErrorController do
       :error -> nil
     end
   end
+
+  # Checkboxes post as selected_ids[]=1&selected_ids[]=2 (a bare value when
+  # only one is checked); anything unparseable is dropped rather than raising
+  defp parse_selected_ids(ids) do
+    ids
+    |> List.wrap()
+    |> Enum.map(&parse_selected_id/1)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+  end
+
+  defp parse_selected_id(id) when is_binary(id) do
+    case Integer.parse(id) do
+      {int, _} -> int
+      :error -> nil
+    end
+  end
+
+  defp parse_selected_id(_), do: nil
 end

@@ -24,6 +24,7 @@ import topbar from '../vendor/topbar'
 import Alpine from 'alpinejs'
 import './tabs'
 import './alpine_helpers'
+import './confirm_dialog'
 
 window.Alpine = Alpine
 Alpine.start()

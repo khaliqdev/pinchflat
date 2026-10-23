@@ -18,7 +18,9 @@
     <.link
       href={~p"/sources/#{@media_item.source_id}/media/#{@media_item}/force_download"}
       method="post"
-      data-confirm="Are you sure you force a download of this media?"
+      data-confirm-dialog
+      data-confirm-title="Force download media?"
+      data-confirm-message="Are you sure you force a download of this media?"
     >
       Force Download
     </.link>
@@ -30,7 +32,11 @@
     <.link
       href={~p"/sources/#{@media_item.source_id}/media/#{@media_item}"}
       method="delete"
-      data-confirm="Are you sure you want to delete all files for this media item? This cannot be undone."
+      data-confirm-dialog
+      data-confirm-title="Delete files?"
+      data-confirm-message="Are you sure you want to delete all files for this media item? This cannot be undone."
+      data-confirm-confirm-text="Delete"
+      data-confirm-kind="danger"
     >
       Delete Files
     </.link>
@@ -39,7 +45,11 @@
     <.link
       href={~p"/sources/#{@media_item.source_id}/media/#{@media_item}?prevent_download=true"}
       method="delete"
-      data-confirm="Are you sure you want to delete all files for this media item and prevent it from re-downloading in the future? This cannot be undone."
+      data-confirm-dialog
+      data-confirm-title="Delete and ignore?"
+      data-confirm-message="Are you sure you want to delete all files for this media item and prevent it from re-downloading in the future? This cannot be undone."
+      data-confirm-confirm-text="Delete"
+      data-confirm-kind="danger"
     >
       Delete and Ignore
     </.link>

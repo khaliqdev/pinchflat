@@ -36,7 +36,9 @@
     <.link
       href={~p"/sources/#{@source}/force_download_pending"}
       method="post"
-      data-confirm="Are you sure you want to force a download of all pending media items? This isn't normally needed."
+      data-confirm-dialog
+      data-confirm-title="Download pending media?"
+      data-confirm-message="Are you sure you want to force a download of all pending media items? This isn't normally needed."
     >
       Download Pending
     </.link>
@@ -45,7 +47,9 @@
     <.link
       href={~p"/sources/#{@source}/force_redownload"}
       method="post"
-      data-confirm="Are you sure you want to re-download all currently downloaded media items? This doesn't upgrade your media, but will download any missing files if your settings have changed. This isn't normally needed."
+      data-confirm-dialog
+      data-confirm-title="Redownload existing media?"
+      data-confirm-message="Are you sure you want to re-download all currently downloaded media items? This doesn't upgrade your media, but will download any missing files if your settings have changed. This isn't normally needed."
     >
       Redownload Existing
     </.link>
@@ -54,7 +58,9 @@
     <.link
       href={~p"/sources/#{@source}/force_index"}
       method="post"
-      data-confirm="Are you sure you want index all content from this source? This isn't normally needed."
+      data-confirm-dialog
+      data-confirm-title="Force index?"
+      data-confirm-message="Are you sure you want index all content from this source? This isn't normally needed."
     >
       Force Index
     </.link>
@@ -63,7 +69,9 @@
     <.link
       href={~p"/sources/#{@source}/force_metadata_refresh"}
       method="post"
-      data-confirm="Are you sure you want to refresh this source's metadata?"
+      data-confirm-dialog
+      data-confirm-title="Refresh metadata?"
+      data-confirm-message="Are you sure you want to refresh this source's metadata?"
     >
       Refresh Metadata
     </.link>
@@ -72,7 +80,9 @@
     <.link
       href={~p"/sources/#{@source}/sync_files_on_disk"}
       method="post"
-      data-confirm="Are you sure you want to sync files? This will update media items if their files have been deleted. File addition or moves are not detected. This isn't normally needed."
+      data-confirm-dialog
+      data-confirm-title="Sync files on disk?"
+      data-confirm-message="Are you sure you want to sync files? This will update media items if their files have been deleted. File addition or moves are not detected. This isn't normally needed."
     >
       Sync Files on Disk
     </.link>
@@ -84,7 +94,11 @@
     <.link
       href={~p"/sources/#{@source}/delete_pending"}
       method="post"
-      data-confirm="Are you sure you want to delete all pending media items for this source? They will be re-added if new content is still being indexed. This cannot be undone."
+      data-confirm-dialog
+      data-confirm-title="Delete all pending media?"
+      data-confirm-message="Are you sure you want to delete all pending media items for this source? They will be re-added if new content is still being indexed. This cannot be undone."
+      data-confirm-confirm-text="Delete"
+      data-confirm-kind="danger"
     >
       Delete All Pending
     </.link>
@@ -93,7 +107,11 @@
     <.link
       href={~p"/sources/#{@source}"}
       method="delete"
-      data-confirm="Are you sure you want to delete this source (leaving files in place)? This cannot be undone."
+      data-confirm-dialog
+      data-confirm-title="Delete source?"
+      data-confirm-message="Are you sure you want to delete this source (leaving files in place)? This cannot be undone."
+      data-confirm-confirm-text="Delete"
+      data-confirm-kind="danger"
     >
       Delete Source
     </.link>
@@ -102,7 +120,11 @@
     <.link
       href={~p"/sources/#{@source}?delete_files=true"}
       method="delete"
-      data-confirm="Are you sure you want to delete this source and it's files on disk? This cannot be undone."
+      data-confirm-dialog
+      data-confirm-title="Delete source and files?"
+      data-confirm-message="Are you sure you want to delete this source and it's files on disk? This cannot be undone."
+      data-confirm-confirm-text="Delete"
+      data-confirm-kind="danger"
       class="mt-5 md:mt-0"
     >
       Delete Source + Files
