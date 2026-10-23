@@ -125,11 +125,114 @@ defmodule Pinchflat.YtDlp.MediaCollection do
     action = :get_source_metadata
 
     with {:ok, output} <- backend_runner().run(source_url, action, all_command_opts, output_template, addl_opts),
-         {:ok, parsed_json} <- Phoenix.json_library().decode(output) do
+         {:ok, parsed_json} <- decode_output(output) do
       {:ok, parsed_json}
     else
       err -> err
     end
+  end
+
+  # yt-dlp's --print-to-file APPENDS every template evaluation to the file. For
+  # a channel URL one run writes BOTH the tab-expanded listing AND the
+  # channel-wrapper playlist (whose entries are the channel's tabs), so the
+  # content is multiple whitespace-separated JSON documents and a plain decode
+  # fails with "unexpected byte" at the second document. Decode every top-level
+  # document and prefer the media-entry listing: the wrapper's entries are
+  # themselves playlists, while the expanded listing's entries are what a
+  # source actually indexes.
+  defp decode_output(output) do
+    case Phoenix.json_library().decode(output) do
+      {:ok, json} ->
+        {:ok, json}
+
+      {:error, _} ->
+        case decodable_documents(output) do
+          [] ->
+            {:error, %Jason.DecodeError{position: 0, data: output}}
+
+          docs ->
+            {:ok, choose_playlist_doc(docs)}
+        end
+    end
+  end
+
+  defp decodable_documents(output) do
+    output
+    |> top_level_document_ranges()
+    |> Enum.flat_map(fn {start, length} ->
+      case Phoenix.json_library().decode(binary_part(output, start, length)) do
+        {:ok, %{} = doc} -> [doc]
+        _ -> []
+      end
+    end)
+  end
+
+  # Of the documents carrying non-empty entries, skip channel wrappers (their
+  # entries are themselves playlists) and take the largest listing; with no
+  # such document, the last decoded document is the best available.
+  defp choose_playlist_doc(docs) do
+    case Enum.filter(docs, fn doc ->
+           case doc["entries"] do
+             [first | _] when is_map(first) -> first["_type"] != "playlist"
+             _ -> false
+           end
+         end) do
+      [] -> List.last(docs)
+      candidates -> Enum.max_by(candidates, fn doc -> length(doc["entries"] || []) end)
+    end
+  end
+
+  defp top_level_document_ranges(output) do
+    {ranges, _final_depth} = scan_documents(output, 0, byte_size(output), 0, false, false, nil, [])
+    Enum.reverse(ranges)
+  end
+
+  defp scan_documents(_output, pos, size, depth, _in_string, _escaped, _doc_start, ranges)
+       when pos >= size do
+    {ranges, depth}
+  end
+
+  defp scan_documents(output, pos, size, depth, in_string, escaped, doc_start, ranges) do
+    byte = :binary.at(output, pos)
+
+    # String state AFTER consuming this byte. Escape/backslash handling only
+    # applies inside strings; outside, a backslash is an ordinary byte.
+    {in_string2, escaped2} =
+      cond do
+        in_string and escaped -> {true, false}
+        in_string and byte == ?\\ -> {true, true}
+        in_string and byte == ?" -> {false, false}
+        in_string -> {true, false}
+        byte == ?" -> {true, false}
+        true -> {false, false}
+      end
+
+    # Braces inside strings (including the quote bytes themselves) are content,
+    # not structure.
+    structural? = not in_string and byte != ?"
+
+    {depth2, doc_start2, ranges2} =
+      cond do
+        not structural? ->
+          {depth, doc_start, ranges}
+
+        byte == ?{ and depth == 0 ->
+          {1, pos, ranges}
+
+        byte == ?{ ->
+          {depth + 1, doc_start, ranges}
+
+        byte == ?} and depth == 1 ->
+          {0, nil, [{doc_start, pos - doc_start + 1} | ranges]}
+
+        byte == ?} ->
+          {depth - 1, doc_start, ranges}
+
+        true ->
+          {depth, doc_start, ranges}
+      end
+
+    scan_documents(output, pos + 1, size, depth2, in_string2, escaped2, doc_start2, ranges2)
   end
 
   defp format_source_details(response) do

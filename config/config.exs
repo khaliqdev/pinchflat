@@ -88,6 +88,12 @@ config :logger, :default_formatter,
   format: "$date $time $metadata[$level] | $message\n",
   metadata: [:request_id]
 
+# In-app logs viewer (ROADMAP 5.1): an additive Logger backend capturing
+# log lines into a bounded in-memory ETS ring buffer served at /logs.
+# :console stays listed, so console output (Docker logs) keeps flowing
+# untouched.
+config :logger, backends: [:console, Pinchflat.Logs.LogBuffer]
+
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 

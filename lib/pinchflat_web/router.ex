@@ -62,12 +62,19 @@ defmodule PinchflatWeb.Router do
     get "/app_info", Settings.SettingController, :app_info
     get "/download_logs", Settings.SettingController, :download_logs
 
+    get "/logs", Logs.LogController, :index
+    get "/logs/download", Logs.LogController, :download
+
     get "/errors", MediaErrors.MediaErrorController, :index
     post "/errors/retry", MediaErrors.MediaErrorController, :retry
     post "/errors/retry-selected", MediaErrors.MediaErrorController, :retry_selected
 
     post "/sources/:id/check_now", Sources.SourceController, :check_now
     post "/sources/:id/delete_pending", Sources.SourceController, :delete_pending
+
+    # Preview scan from the source form - a JSON POST from vanilla JS
+    # (ROADMAP 4.1), CSRF-protected like every :browser POST
+    post "/sources/scan", Sources.SourceController, :scan
 
     resources "/sources", Sources.SourceController do
       post "/force_download_pending", Sources.SourceController, :force_download_pending

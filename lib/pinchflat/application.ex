@@ -27,6 +27,13 @@ defmodule Pinchflat.Application do
       # Owns the named ETS table LiveViews and download workers read/write,
       # so it must be up before the endpoint starts rendering pages
       Pinchflat.Downloading.DownloadProgress,
+      # Creates the named ETS table the in-app logs viewer reads (ROADMAP 5.1)
+      # if the Logger backend hasn't already: backend gen_event callbacks run
+      # inside Logger's manager process and create the table at :logger boot,
+      # so whichever starts first wins (init/1 is idempotent) and a restart of
+      # this child restores a vanished table. Up before the endpoint so /logs
+      # never sees a missing table
+      Pinchflat.Logs.LogBuffer,
       # Start the Finch HTTP client for sending emails
       {Finch, name: Pinchflat.Finch},
       # Start a worker by calling: Pinchflat.Worker.start_link(arg)

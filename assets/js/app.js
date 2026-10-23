@@ -25,6 +25,7 @@ import Alpine from 'alpinejs'
 import './tabs'
 import './alpine_helpers'
 import './confirm_dialog'
+import './source_preview_scan'
 
 window.Alpine = Alpine
 Alpine.start()

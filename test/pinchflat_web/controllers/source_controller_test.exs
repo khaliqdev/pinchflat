@@ -12,7 +12,6 @@ defmodule PinchflatWeb.SourceControllerTest do
   alias Pinchflat.Downloading.MediaDownloadWorker
   alias Pinchflat.Metadata.SourceMetadataStorageWorker
   alias Pinchflat.SlowIndexing.MediaCollectionIndexingWorker
-  alias Pinchflat.Sources.Source
 
   setup do
     media_profile = media_profile_fixture()
@@ -267,6 +266,109 @@ defmodule PinchflatWeb.SourceControllerTest do
 
       conn = post(conn, ~p"/sources/#{source.id}/sync_files_on_disk")
       assert redirected_to(conn) == ~p"/sources/#{source.id}"
+    end
+  end
+
+  describe "POST /sources/scan" do
+    setup do
+      # The scanner runs its yt-dlp call inside a Task so it can enforce a hard
+      # timeout - the mock gets invoked from that other process, so
+      # expectations must be global (safe: these tests are not async)
+      set_mox_global()
+
+      # The timeout test overrides the scan timeout; reset it no matter how the
+      # test ends so the leak can't reach other tests
+      on_exit(fn -> Application.put_env(:pinchflat, :source_scan_timeout_ms, nil) end)
+
+      :ok
+    end
+
+    test "returns the preview-scan estimate as JSON", %{conn: conn, create_attrs: create_attrs} do
+      expect(YtDlpRunnerMock, :run, fn _url, :get_source_metadata, _opts, _ot, _addl_opts ->
+        {:ok,
+         Phoenix.json_library().encode!(%{
+           "playlist_count" => 3,
+           "entries" => [
+             %{
+               "id" => "one",
+               "title" => "One",
+               "duration" => 60.0,
+               "original_url" => "https://www.youtube.com/watch?v=one"
+             }
+           ]
+         })}
+      end)
+
+      conn = post(conn, ~p"/sources/scan", source: create_attrs)
+
+      assert %{"data" => data} = json_response(conn, 200)
+      assert data["total_found"] == 3
+      assert data["estimated_downloads"] == 1
+      assert data["analyzed_entries"] == 1
+      assert is_list(data["breakdown"])
+    end
+
+    test "returns field errors as 422 without calling yt-dlp", %{conn: conn} do
+      # No Mox expectation on purpose: an unexpected runner call fails the test
+      conn =
+        post(conn, ~p"/sources/scan", source: %{"original_url" => "https://www.youtube.com/watch?v=abc123"})
+
+      assert %{"errors" => errors} = json_response(conn, 422)
+      assert errors["original_url"] == ["must be a channel or playlist URL"]
+    end
+
+    test "wraps yt-dlp failures as a scan-failed error", %{conn: conn, create_attrs: create_attrs} do
+      expect(YtDlpRunnerMock, :run, fn _url, :get_source_metadata, _opts, _ot, _addl_opts ->
+        {:error, "ERROR: something broke", 1}
+      end)
+
+      conn = post(conn, ~p"/sources/scan", source: create_attrs)
+
+      assert %{"error" => error} = json_response(conn, 422)
+      assert error =~ "Scan failed:"
+      assert error =~ "something broke"
+    end
+
+    test "surfaces the hard timeout as 'channel too large for preview'", %{
+      conn: conn,
+      create_attrs: create_attrs
+    } do
+      # Generous headroom (100ms) so the spawned task reliably reaches the mock
+      # before the yield expires - then the 500ms sleep guarantees the timeout
+      Application.put_env(:pinchflat, :source_scan_timeout_ms, 100)
+
+      expect(YtDlpRunnerMock, :run, fn _url, :get_source_metadata, _opts, _ot, _addl_opts ->
+        Process.sleep(500)
+        {:ok, "{}"}
+      end)
+
+      conn = post(conn, ~p"/sources/scan", source: create_attrs)
+
+      assert %{"error" => error} = json_response(conn, 408)
+      assert error =~ "Channel too large for preview"
+      assert error =~ "timed out"
+    end
+
+    test "renders the preview-scan control with CSRF wiring on the new form", %{conn: conn} do
+      conn = get(conn, ~p"/sources/new")
+      html = html_response(conn, 200)
+
+      assert html =~ "Preview scan"
+      assert html =~ "data-preview-scan-button"
+      # The scan JS posts with an x-csrf-token header read from this meta tag.
+      # Phoenix.ConnTest marks test conns to skip CSRF enforcement
+      # (build_conn/0), so the token check itself can't be exercised over the
+      # endpoint - the markup is the assertable half, same approach as the
+      # errors-console tests
+      assert html =~ ~s(name="csrf-token")
+    end
+
+    test "renders the preview-scan control on the edit form", %{conn: conn} do
+      source = source_fixture()
+
+      conn = get(conn, ~p"/sources/#{source}/edit")
+
+      assert html_response(conn, 200) =~ "data-preview-scan-button"
     end
   end
 

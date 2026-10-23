@@ -163,6 +163,48 @@ defmodule Pinchflat.YtDlp.MediaCollectionTest do
       assert %{"channel" => "PinchflatTestChannel"} = res
     end
 
+    test "decodes concatenated multi-document output, keeping the last (playlist) document" do
+      # --print-to-file APPENDS every template evaluation to one file, so a run
+      # with an entry range produces the video-stage docs followed by the
+      # playlist blob. The playlist document is the last top-level object.
+      doc1 = ~s({"id": "vid1", "autonumber": 0, "resolution": null})
+      doc2 = ~s({"id": "UCB123", "playlist_count": 3, "entries": [{"id": "vid1"}]})
+
+      expect(YtDlpRunnerMock, :run, fn _url, :get_source_metadata, _opts, _ot, _addl_opts ->
+        {:ok, doc1 <> "\n" <> doc2}
+      end)
+
+      assert {:ok, %{"playlist_count" => 3, "entries" => [%{"id" => "vid1"}]}} =
+               MediaCollection.get_source_metadata(@channel_url, playlist_items: 1)
+    end
+
+    test "prefers the tab-expanded media listing over the channel-wrapper playlist" do
+      # A channel URL writes the expanded listing AND the channel wrapper (whose
+      # entries are the channel's tabs) into the same file. The wrapper is not
+      # what a source indexes - the expanded listing is.
+      expanded =
+        ~s({"id": "UCB123-videos", "playlist_count": 2, "entries": [{"id": "vid1", "url": "https://www.youtube.com/watch?v=vid1"}, {"id": "vid2", "url": "https://www.youtube.com/watch?v=vid2"}]})
+
+      wrapper =
+        ~s({"id": "UCB123", "playlist_count": 3, "entries": [{"_type": "playlist", "title": "Videos", "url": "https://www.youtube.com/@test/videos"}, {"_type": "playlist", "title": "Live", "url": "https://www.youtube.com/@test/streams"}, {"_type": "playlist", "title": "Shorts", "url": "https://www.youtube.com/@test/shorts"}]})
+
+      expect(YtDlpRunnerMock, :run, fn _url, :get_source_metadata, _opts, _ot, _addl_opts ->
+        {:ok, expanded <> "\n" <> wrapper}
+      end)
+
+      assert {:ok, %{"playlist_count" => 2, "entries" => [%{"id" => "vid1"}, %{"id" => "vid2"}]}} =
+               MediaCollection.get_source_metadata(@channel_url, playlist_items: 1)
+    end
+
+    test "skips an undecodable document and returns the best remaining one" do
+      expect(YtDlpRunnerMock, :run, fn _url, :get_source_metadata, _opts, _ot, _addl_opts ->
+        {:ok, ~s({"id": "vid1", "autonumber": 0}) <> "\n" <> "{\"broken\": "}
+      end)
+
+      assert {:ok, %{"id" => "vid1"}} =
+               MediaCollection.get_source_metadata(@channel_url, playlist_items: 1)
+    end
+
     test "passes the expected args to the backend runner" do
       expect(YtDlpRunnerMock, :run, fn @channel_url, :get_source_metadata, opts, ot, _addl_opts ->
         assert opts == [:skip_download, playlist_items: 0]

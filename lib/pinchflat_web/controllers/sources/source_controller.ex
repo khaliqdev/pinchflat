@@ -10,6 +10,7 @@ defmodule PinchflatWeb.Sources.SourceController do
   alias Pinchflat.Media
   alias Pinchflat.Media.FileSyncingWorker
   alias Pinchflat.Sources.SourceDeletionWorker
+  alias Pinchflat.Sources.SourceScanner
   alias Pinchflat.Downloading.DownloadingHelpers
   alias Pinchflat.SlowIndexing.SlowIndexingHelpers
   alias Pinchflat.Metadata.SourceMetadataStorageWorker
@@ -74,6 +75,39 @@ defmodule PinchflatWeb.Sources.SourceController do
     conn
     |> put_flash(:info, "Indexing started - new videos will appear shortly")
     |> redirect(to: ~p"/sources/#{source}")
+  end
+
+  @doc """
+  Runs a preview scan (ROADMAP 4.1) against the source-form values without
+  saving anything and answers with JSON. The form's vanilla JS posts with the
+  x-csrf-token header (read from the csrf-token meta tag), which the :browser
+  pipeline's protect_from_forgery accepts.
+  """
+  def scan(conn, params) do
+    case SourceScanner.scan_from_params(Map.get(params, "source", %{})) do
+      {:ok, result} ->
+        json(conn, %{data: result})
+
+      {:error, {:invalid, errors}} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{errors: errors})
+
+      {:error, :timeout} ->
+        conn
+        |> put_status(:request_timeout)
+        |> json(%{error: timeout_message()})
+
+      {:error, {:scan_failed, message}} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> json(%{error: "Scan failed: #{message}"})
+    end
+  end
+
+  defp timeout_message do
+    "Channel too large for preview (scan timed out after #{div(SourceScanner.timeout_ms(), 1000)}s). " <>
+      "Saving the source and letting the first index run will still work."
   end
 
   def delete_pending(conn, %{"id" => id}) do
