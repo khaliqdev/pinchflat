@@ -141,6 +141,51 @@ form's settings. Motivation: committing a channel blind means discovering a
 Explicitly out of scope for both: live progress of the scan listing itself,
 caching scan results across form edits.
 
+## Phase 5 — In-app logs viewer (specified, ready to build)
+
+View the app's own logs from the web UI. Today the only way is `docker logs`
+over SSH, and the app log carries what no page shows: worker crashes, yt-dlp
+auto-update events, cookie/backup/Oban errors.
+
+### 5.1 Log buffer (additive Logger backend)
+
+- New Logger backend GenServer capturing every log event into a bounded ETS
+  ring buffer — default last 5,000 lines, env-tunable (`LOG_BUFFER_LINES`).
+  Console output keeps flowing untouched (Docker logs unaffected); buffer is
+  in-memory, i.e. logs-since-boot.
+- Hard rules: never log from inside the backend (recursion), and any failure in
+  the backend is swallowed — logging infrastructure can never take the app down.
+- Store `{seq, time, level, message, metadata}`; format lines like the console
+  formatter so the viewer reads like `docker logs`.
+- Live delivery: batched PubSub broadcasts (~500ms flush) on a `log_buffer`
+  topic — same architecture as the download-progress feature, so a chatty
+  stream can't flood the websocket.
+- Open decision at build time: `runtime.exs` currently defaults production
+  `LOG_LEVEL` to debug (very chatty — Phoenix/Oban/ecto). Either flip the
+  default to `:info` in the same change or guarantee the viewer's filters make
+  debug usable. Buffer memory is trivial either way (~1 MB at 5k lines).
+
+### 5.2 Logs viewer LiveView (Config → Logs)
+
+- New sidebar entry under Config; monospace page styled like the /errors
+  console, theme-aware (light + dark).
+- Live-follow with pause and auto-scroll; level filter chips with counts
+  ("3 errors since boot" visible at a glance); text search; filter by
+  worker/module from Logger metadata (MediaDownloadWorker, Oban, …).
+- "Download last N lines" export button for bug reports.
+- Rendering must stay smooth at the buffer cap — chunked/virtualized list, not
+  5,000 raw DOM nodes.
+- Redaction pass while wiring: anything token-bearing gets the API-key masking
+  treatment before it hits the buffer.
+
+**Done when**: real log lines stream live in both themes; filters, search and
+export work; buffer cap holds under a debug-level firehose; a deliberately
+raised backend error changes nothing for the app; tests cover ring behaviour,
+counts and filters; full suite green.
+
+Explicitly out of scope: persistent file storage (follow-up: optional rotating
+file under `/config`), docker-logs integration, external log aggregation.
+
 ## Working agreements
 
 - Dev loop: `docker compose up phx` → http://localhost:4008 (mix test inside container).
