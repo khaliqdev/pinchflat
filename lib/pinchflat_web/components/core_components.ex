@@ -507,12 +507,13 @@ defmodule PinchflatWeb.CoreComponents do
           id={@id}
           value={Phoenix.HTML.Form.normalize_value(@type, @value)}
           class={[
-            "w-full rounded-lg border-[1.5px] px-5 py-3 font-normal border-stroke bg-white",
-            "dark:border-form-strokedark dark:bg-form-input",
-            "outline-none transition active:border-primary disabled:cursor-default disabled:bg-whiter",
-            "text-black placeholder:text-bodydark2 focus:border-primary dark:text-white dark:placeholder:text-bodydark",
-            @inputclass,
-            @errors != [] && "border-rose-400 focus:border-rose-400"
+            "w-full rounded-lg border-[1.5px] bg-white px-5 py-3 font-normal text-zinc-900 placeholder:text-body outline-none transition dark:bg-form-input dark:text-white dark:placeholder:text-bodydark",
+            "disabled:cursor-default disabled:bg-whiter dark:disabled:bg-whiter",
+            @errors == [] &&
+              "border-zinc-300 focus:border-primary active:border-primary dark:border-form-strokedark dark:focus:border-primary dark:active:border-primary",
+            @errors != [] &&
+              "border-rose-400 focus:border-rose-400 active:border-rose-400 dark:border-rose-400 dark:focus:border-rose-400 dark:active:border-rose-400",
+            @inputclass
           ]}
           {@rest}
         />
