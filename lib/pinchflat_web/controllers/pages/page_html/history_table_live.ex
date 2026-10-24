@@ -6,7 +6,7 @@ defmodule Pinchflat.Pages.HistoryTableLive do
   alias Pinchflat.Utils.NumberUtils
   alias PinchflatWeb.CustomComponents.TextComponents
 
-  @limit 5
+  @limit 20
 
   def render(%{records: []} = assigns) do
     ~H"""
@@ -29,7 +29,21 @@ defmodule Pinchflat.Pages.HistoryTableLive do
       <div class="max-w-full overflow-x-auto">
         <.table rows={@records} >
           <:col :let={media_item} label="Title" class="max-w-xs">
-            <section class="flex items-center space-x-1">
+            <section class="flex items-center space-x-2">
+              <img
+                :if={(media_item.thumbnail_filepath && media_item.uuid) || media_item.media_id}
+                src={
+                  cond do
+                    media_item.thumbnail_filepath && media_item.uuid -> ~p"/media/#{media_item.uuid}/episode_image"
+                    media_item.media_id -> "https://i.ytimg.com/vi/#{media_item.media_id}/mqdefault.jpg"
+                    true -> nil
+                  end
+                }
+                alt=""
+                loading="lazy"
+                class="h-9 w-16 shrink-0 rounded-md border border-stroke dark:border-strokedark object-cover"
+                onerror="this.classList.add('hidden')"
+              />
               <.tooltip
                 :if={media_item.last_error}
                 tooltip={media_item.last_error}
@@ -120,7 +134,9 @@ defmodule Pinchflat.Pages.HistoryTableLive do
     MediaQuery.new()
     |> MediaQuery.require_assoc(:media_profile)
     |> where(^dynamic(^MediaQuery.downloaded()))
-    |> order_by(desc: :id)
+    # Recency order: the tab reads as "recently downloaded", which id order
+    # does not give once indexing and downloading drift apart
+    |> order_by(desc: :media_downloaded_at, desc: :id)
   end
 
   defp format_datetime(nil), do: ""

@@ -1,4 +1,4 @@
-<form x-data="{ selected: [] }" action={~p"/errors/retry-selected"} method="post" data-confirm-form>
+<form x-data={"{ selected: [], pageIds: #{Jason.encode!(Enum.map(@errors, & &1.id))} }"} action={~p"/errors/retry-selected"} method="post" data-confirm-form>
   <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
   <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
     <h2 class="text-title-md2 font-bold text-black dark:text-white">Errors</h2>
@@ -39,6 +39,17 @@
       >
         Retry Errored
       </.link>
+    <span class="text-sm text-bodydark2" :if={!Enum.empty?(@errors)}>
+      showing {length(@errors)} of {@total_errored} failures
+    </span>
+    <button
+      type="button"
+      x-on:click="selected = pageIds"
+      :if={!Enum.empty?(@errors)}
+      class="rounded-md border border-stroke px-3 py-1.5 text-sm font-medium text-bodydark2 hover:text-bodydark1 dark:border-strokedark"
+    >
+      Select page
+    </button>
     <nav class="flex flex-wrap items-center gap-2">
       <.link
         href={~p"/errors"}
@@ -86,7 +97,7 @@
           class="h-9 w-16 shrink-0 rounded-md border border-stroke dark:border-strokedark object-cover"
           onerror="this.classList.add('hidden')"
         />
-        <span class="shrink-0 rounded-md border border-red-500/20 bg-red-500/10 px-1.5 py-0.5 text-xs font-medium leading-4 text-red-400">
+        <span class="shrink-0 rounded-md border border-red-200 bg-red-50 px-1.5 py-0.5 text-xs font-medium leading-4 text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400">
           Failed
         </span>
         <.subtle_link href={~p"/sources/#{item.source_id}/media/#{item.id}"}>

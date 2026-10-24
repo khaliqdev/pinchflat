@@ -19,20 +19,20 @@ defmodule PinchflatWeb.CustomComponents.TabComponents do
     <div
       x-data={"{
         openTab: getTabFromHash('#{@first_tab_id}', '#{@first_tab_id}'),
-        activeClasses: 'text-meta-5 border-meta-5',
-        inactiveClasses: 'border-transparent'
+        activeClasses: 'text-primary border-primary dark:text-meta-5 dark:border-meta-5',
+        inactiveClasses: 'border-transparent text-zinc-600 dark:text-bodydark'
       }"}
       @hashchange.window={"openTab = getTabFromHash(openTab, '#{@first_tab_id}')"}
       class="w-full"
     >
-      <header class="flex flex-col md:flex-row md:justify-between border-b border-strokedark">
+      <header class="flex flex-col md:flex-row md:justify-between border-b border-stroke dark:border-strokedark">
         <div class="flex flex-wrap gap-5 sm:gap-10">
           <a
             :for={tab <- @tab}
             href="#"
             @click.prevent={"openTab = setTabByName('#{tab.id}')"}
             x-bind:class={"openTab === '#{tab.id}' ? activeClasses : inactiveClasses"}
-            class="border-b-2 py-4 w-full sm:w-fit text-sm font-medium hover:text-meta-5 md:text-base"
+            class="w-full border-b-2 py-4 text-sm font-medium hover:text-primary dark:hover:text-meta-5 sm:w-fit md:text-base"
           >
             <span class="text-xl">{tab.title}</span>
           </a>

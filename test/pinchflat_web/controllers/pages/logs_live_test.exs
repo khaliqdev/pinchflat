@@ -21,7 +21,7 @@ defmodule PinchflatWeb.Pages.LogsLiveTest do
       {:ok, _view, html} = live_isolated(conn, LogsLive, session: %{})
 
       assert html =~ "the ship is fine"
-      assert html =~ "[info] | the ship is fine"
+      assert html =~ "[info] App | the ship is fine"
       # The /errors console styling tokens (asserted per token - the class
       # order in the markup differs from the /errors page)
       assert html =~ "font-mono"

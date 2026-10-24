@@ -380,4 +380,49 @@ defmodule Pinchflat.Logs.LogBufferTest do
       assert entry.line =~ ~s("_mounts" => "0")
     end
   end
+
+  describe "format_line/2 compact viewer rendering" do
+    test "keeps timestamp, level, module, request_id and message; drops Erlang metadata" do
+      entry = %{
+        time: {{2026, 10, 24}, {12, 0, 0, 123}},
+        level: :info,
+        message: "the redacted message",
+        metadata: %{
+          "module" => "Elixir.Phoenix.Logger",
+          "function" => "phoenix_endpoint_start/4",
+          "file" => "lib/phoenix/logger.ex",
+          "gl" => "#PID<0.1.0>",
+          request_id: "req-42"
+        },
+        source: "Logger",
+        line: "FULL docker-logs line with pid and file"
+      }
+
+      compact = LogBuffer.format_line(entry, :compact)
+
+      assert compact =~ "2026-10-24 12:00:00.123"
+      assert compact =~ "[info]"
+      assert compact =~ "Phoenix.Logger"
+      assert compact =~ "request_id=req-42"
+      assert compact =~ "the redacted message"
+      refute compact =~ "phoenix_endpoint_start"
+      refute compact =~ "#PID<0.1.0>"
+      refute compact =~ "logger.ex"
+      # stored line untouched
+      assert entry.line =~ "FULL docker-logs line"
+    end
+
+    test "falls back to the derived source label when module metadata is absent" do
+      entry = %{
+        time: {{2026, 10, 24}, {12, 0, 0, 0}},
+        level: :warning,
+        message: "warned",
+        metadata: %{},
+        source: "YtDlp",
+        line: "x"
+      }
+
+      assert LogBuffer.format_line(entry, :compact) =~ "[warning] YtDlp | warned"
+    end
+  end
 end

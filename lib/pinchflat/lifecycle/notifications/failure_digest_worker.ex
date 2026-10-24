@@ -13,7 +13,8 @@ defmodule Pinchflat.Lifecycle.Notifications.FailureDigestWorker do
 
   use Oban.Worker,
     queue: :local_data,
-    tags: ["local_data"]
+    tags: ["local_data"],
+    max_attempts: 1
 
   require Logger
 
@@ -25,52 +26,80 @@ defmodule Pinchflat.Lifecycle.Notifications.FailureDigestWorker do
   def perform(%Oban.Job{}) do
     if Settings.get!(:failure_notifications) do
       run_digest()
+    else
+      :ok
     end
-
-    :ok
   end
 
   defp run_digest do
-    since =
-      case Settings.get(:failure_digest_cursor) do
-        {:ok, %DateTime{} = cursor} -> cursor
-        _ -> DateTime.add(DateTime.utc_now(), -15 * 60, :second)
-      end
+    through =
+      DateTime.utc_now()
+      |> DateTime.truncate(:second)
+      |> DateTime.add(-1, :second)
 
-    items = Media.list_errored_media_items(since: since, limit: 100)
+    with {:ok, since} <- digest_cursor(through) do
+      if DateTime.compare(since, through) == :lt do
+        case Media.failure_digest_window(since, through) do
+          %{count: 0} ->
+            persist_cursor(through)
 
-    case items do
-      [] ->
+          %{count: count, items: items} ->
+            with :ok <- send_digest(items, count) do
+              persist_cursor(through)
+            end
+        end
+      else
         :ok
-
-      items ->
-        send_digest(items)
-        advance_cursor(items)
+      end
     end
   end
 
-  defp send_digest(items) do
+  # Persisting the initial lower bound is initialization, not acknowledgement
+  # of delivery - it stops an uninitialized cursor from sliding forward while
+  # nothing has been acknowledged at all yet.
+  defp digest_cursor(through) do
+    case Settings.get(:failure_digest_cursor) do
+      {:ok, %DateTime{} = cursor} ->
+        {:ok, cursor}
+
+      _ ->
+        initial = DateTime.add(through, -15 * 60, :second)
+
+        case Settings.set(failure_digest_cursor: initial) do
+          {:ok, _} -> {:ok, initial}
+          {:error, reason} -> {:error, reason}
+        end
+    end
+  end
+
+  defp persist_cursor(through) do
+    case Settings.set(failure_digest_cursor: through) do
+      {:ok, _} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp send_digest(items, count) do
     first = hd(items)
     first_error = first.last_error |> to_string() |> String.split("\n") |> hd() |> String.slice(0, 140)
 
-    # A full page (limit 100) means more items are waiting behind the cursor;
-    # say so rather than undercounting a mass failure
-    count_label = if length(items) >= 100, do: "100+", else: Integer.to_string(length(items))
-
     opts = [
       title: "[re:Pinchflat] Download failures",
-      body: "#{count_label} new download failure(s). First: #{first.title} - #{first_error}"
+      body: "#{count} new download failure(s). First: #{first.title} - #{first_error}"
     ]
 
     case apprise_runner().run(Settings.get!(:apprise_server), opts) do
       {:ok, _} ->
-        Logger.info("Sent failure digest notification covering #{length(items)} item(s)")
+        Logger.info("Sent failure digest notification covering #{count} item(s)")
+        :ok
 
       {:error, :no_servers} ->
         Logger.warning("Failure digest enabled but no Apprise server is configured")
+        {:error, :no_servers}
 
       {:error, err} ->
         Logger.error("Failed to send failure digest notification: #{inspect(err)}")
+        {:error, err}
     end
   end
 
@@ -78,8 +107,4 @@ defmodule Pinchflat.Lifecycle.Notifications.FailureDigestWorker do
     Application.get_env(:pinchflat, :apprise_runner, AppriseRunner)
   end
 
-  defp advance_cursor(items) do
-    latest = items |> Enum.map(& &1.updated_at) |> Enum.max()
-    Settings.set(failure_digest_cursor: latest)
-  end
 end

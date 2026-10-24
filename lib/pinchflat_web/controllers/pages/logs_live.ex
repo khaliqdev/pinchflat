@@ -67,7 +67,7 @@ defmodule Pinchflat.Pages.LogsLive do
               type="button"
               phx-click="toggle-level"
               phx-value-level={level}
-              class={["rounded-md border px-3 py-1.5 text-sm font-medium capitalize", chip_state(level in @selected_levels)]}
+              class={["rounded-md border px-3 py-1.5 text-sm font-medium capitalize", chip_state(level, level in @selected_levels)]}
             >
               {level} <span class="ml-1 font-normal opacity-75 tabular-nums">{@level_counts[level]}</span>
             </button>
@@ -82,7 +82,7 @@ defmodule Pinchflat.Pages.LogsLive do
               phx-value-source=""
               class={["rounded-md border px-3 py-1.5 text-sm font-medium", chip_state(is_nil(@selected_source))]}
             >
-              All sources
+              All modules
             </button>
             <button
               :for={source <- @sources}
@@ -138,16 +138,14 @@ defmodule Pinchflat.Pages.LogsLive do
         <div
           id="logs-scroll"
           phx-hook="LogsAutoScroll"
-          class="overflow-y-auto rounded-md border border-stroke bg-gray-2 p-3 font-mono text-xs leading-5 dark:border-strokedark dark:bg-meta-4"
+          class="flex flex-col gap-0 overflow-y-auto rounded-md border border-stroke bg-gray-2 p-3 font-mono text-[13px] leading-5 dark:border-strokedark dark:bg-meta-4"
           style="max-height: 70vh"
         >
           <div :if={@lines == []} class="text-bodydark2">
             No matching log lines.
           </div>
 
-          <div :for={entry <- @lines} class={["whitespace-pre-wrap break-all", line_class(entry.level)]}>
-            {entry.line}
-          </div>
+          <div :for={entry <- @lines} id={"log-entry-#{entry.seq}"} class={["m-0 shrink-0 whitespace-pre-wrap break-words p-0 text-[13px] leading-5", line_class(entry.level)]}><%= entry.line %></div>
         </div>
 
         <div class="mt-3 flex flex-wrap items-center justify-center gap-3">
@@ -236,7 +234,14 @@ defmodule Pinchflat.Pages.LogsLive do
     matched = Enum.filter(entries, &matches_filters?(&1, socket.assigns))
 
     assign(socket,
-      lines: Enum.take(matched, -min(socket.assigns.visible_lines, @max_rendered)),
+      lines:
+        matched
+        |> Enum.take(-min(socket.assigns.visible_lines, @max_rendered))
+        |> Enum.map(fn entry ->
+          # Viewer-only compact formatting: the stored line (searched here and
+          # exported verbatim) keeps the full docker-logs metadata
+          %{entry | line: LogBuffer.format_line(entry, :compact)}
+        end),
       last_seq: current_seq(entries, socket.assigns.last_seq),
       matched_count: length(matched),
       total: length(entries),
@@ -260,11 +265,36 @@ defmodule Pinchflat.Pages.LogsLive do
   end
 
   # Mirrors the /errors filter chips: active is primary, inactive is muted
-  defp chip_state(true), do: "border-primary text-primary"
-  defp chip_state(false), do: "border-strokedark text-bodydark2 hover:text-bodydark1"
+  defp chip_state(true) do
+    "border-blue-200 bg-blue-50 text-blue-700 dark:border-primary dark:bg-transparent dark:text-primary"
+  end
 
-  defp line_class(:error), do: "text-red-400"
-  defp line_class(:warning), do: "text-amber-400"
-  defp line_class(:debug), do: "text-bodydark2"
-  defp line_class(_level), do: "text-body dark:text-bodydark1"
+  defp chip_state(false) do
+    "border-stroke bg-transparent text-zinc-600 hover:text-zinc-900 dark:border-strokedark dark:text-bodydark2 dark:hover:text-bodydark1"
+  end
+
+  defp chip_state(_level, false) do
+    "border-stroke text-zinc-600 hover:text-zinc-900 dark:border-strokedark dark:text-bodydark2 dark:hover:text-bodydark1"
+  end
+
+  defp chip_state(:error, true) do
+    "border-red-200 bg-red-50 text-red-700 dark:border-primary dark:bg-transparent dark:text-primary"
+  end
+
+  defp chip_state(:warning, true) do
+    "border-amber-200 bg-amber-50 text-amber-800 dark:border-primary dark:bg-transparent dark:text-primary"
+  end
+
+  defp chip_state(:info, true) do
+    "border-blue-200 bg-blue-50 text-blue-700 dark:border-primary dark:bg-transparent dark:text-primary"
+  end
+
+  defp chip_state(:debug, true) do
+    "border-stroke bg-gray text-zinc-700 dark:border-primary dark:bg-transparent dark:text-primary"
+  end
+
+  defp line_class(:error), do: "text-red-700 dark:text-red-400"
+  defp line_class(:warning), do: "text-amber-800 dark:text-amber-400"
+  defp line_class(:debug), do: "text-zinc-600 dark:text-bodydark2"
+  defp line_class(_level), do: "text-zinc-800 dark:text-bodydark1"
 end

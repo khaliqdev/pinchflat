@@ -368,7 +368,7 @@ defmodule PinchflatWeb.CoreComponents do
           {@rest}
         />
         {@label}
-        <span :if={@label_suffix} class="text-xs text-bodydark">{@label_suffix}</span>
+        <span :if={@label_suffix} class="text-xs text-zinc-600 dark:text-bodydark">{@label_suffix}</span>
       </label>
       <.help :if={@help}>{if @html_help, do: Phoenix.HTML.raw(@help), else: @help}</.help>
       <.error :for={msg <- @errors}>{msg}</.error>
@@ -380,7 +380,7 @@ defmodule PinchflatWeb.CoreComponents do
     ~H"""
     <div phx-feedback-for={@name}>
       <.label for={@id}>
-        {@label}<span :if={@label_suffix} class="text-xs text-bodydark">{@label_suffix}</span>
+        {@label}<span :if={@label_suffix} class="text-xs text-zinc-600 dark:text-bodydark">{@label_suffix}</span>
       </.label>
       <section class="grid grid-cols-1 gap-2 md:grid-cols-2 max-w-prose mb-4 ml-1">
         <div :for={{option_name, option_value} <- @options} class="flex items-center">
@@ -413,7 +413,7 @@ defmodule PinchflatWeb.CoreComponents do
     <div x-data={"{ enabled: #{@checked} }"} class="" phx-update="ignore" id={"#{@id}-wrapper"}>
       <.label :if={@label} for={@id}>
         {@label}
-        <span :if={@label_suffix} class="text-xs text-bodydark">{@label_suffix}</span>
+        <span :if={@label_suffix} class="text-xs text-zinc-600 dark:text-bodydark">{@label_suffix}</span>
       </.label>
       <div class="relative flex flex-col">
         <input type="hidden" id={@id} name={@name} x-bind:value="enabled" {@rest} />
@@ -440,16 +440,19 @@ defmodule PinchflatWeb.CoreComponents do
     ~H"""
     <div phx-feedback-for={@name}>
       <.label :if={@label} for={@id}>
-        {@label}<span :if={@label_suffix} class="text-xs text-bodydark">{@label_suffix}</span>
+        {@label}<span :if={@label_suffix} class="text-xs text-zinc-600 dark:text-bodydark">{@label_suffix}</span>
       </.label>
       <div class="flex">
         <select
           id={@id}
           name={@name}
           class={[
-            "relative z-20 w-full appearance-none rounded border border-form-strokedark py-3 pl-5 pr-12 outline-none transition",
-            "focus:border-primary active:border-primary bg-form-input text-white",
-            "disabled:text-opacity-50 disabled:cursor-not-allowed disabled:border-black",
+            "relative z-20 w-full appearance-none rounded border bg-white py-3 pl-5 pr-12 text-zinc-900 placeholder:text-body outline-none transition dark:bg-form-input dark:text-white dark:placeholder:text-bodydark",
+            @errors == [] &&
+              "border-zinc-300 focus:border-primary active:border-primary dark:border-form-strokedark dark:focus:border-primary dark:active:border-primary",
+            @errors != [] &&
+              "border-rose-400 focus:border-rose-400 active:border-rose-400 dark:border-rose-400 dark:focus:border-rose-400 dark:active:border-rose-400",
+            "disabled:cursor-not-allowed disabled:border-zinc-300 disabled:text-opacity-50 dark:disabled:border-black",
             @inputclass
           ]}
           multiple={@multiple}
@@ -470,7 +473,7 @@ defmodule PinchflatWeb.CoreComponents do
     ~H"""
     <div phx-feedback-for={@name}>
       <.label for={@id}>
-        {@label}<span :if={@label_suffix} class="text-xs text-bodydark">{@label_suffix}</span>
+        {@label}<span :if={@label_suffix} class="text-xs text-zinc-600 dark:text-bodydark">{@label_suffix}</span>
       </.label>
       <textarea
         id={@id}
@@ -495,7 +498,7 @@ defmodule PinchflatWeb.CoreComponents do
     ~H"""
     <div phx-feedback-for={@name}>
       <.label for={@id}>
-        {@label}<span :if={@label_suffix} class="text-xs text-bodydark">{@label_suffix}</span>
+        {@label}<span :if={@label_suffix} class="text-xs text-zinc-600 dark:text-bodydark">{@label_suffix}</span>
       </.label>
       <div class="flex items-center">
         <input
@@ -504,9 +507,10 @@ defmodule PinchflatWeb.CoreComponents do
           id={@id}
           value={Phoenix.HTML.Form.normalize_value(@type, @value)}
           class={[
-            "w-full rounded-lg border-[1.5px] px-5 py-3 font-normal border-form-strokedark bg-form-input",
+            "w-full rounded-lg border-[1.5px] px-5 py-3 font-normal border-stroke bg-white",
+            "dark:border-form-strokedark dark:bg-form-input",
             "outline-none transition active:border-primary disabled:cursor-default disabled:bg-whiter",
-            "text-white focus:border-primary",
+            "text-black placeholder:text-bodydark2 focus:border-primary dark:text-white dark:placeholder:text-bodydark",
             @inputclass,
             @errors != [] && "border-rose-400 focus:border-rose-400"
           ]}
@@ -527,7 +531,7 @@ defmodule PinchflatWeb.CoreComponents do
 
   def help(assigns) do
     ~H"""
-    <p class="mt-1 text-sm leading-5">
+    <p class="mt-1 text-sm leading-5 text-zinc-600 dark:text-bodydark">
       {render_slot(@inner_block)}
     </p>
     """

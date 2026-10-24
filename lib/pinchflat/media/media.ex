@@ -271,6 +271,53 @@ defmodule Pinchflat.Media do
     |> Repo.all()
   end
 
+  @doc """
+  Counts errored media items, same filters as `list_errored_media_items/1`
+  without the limit - the errors console shows "showing 100 of N".
+  """
+  @doc """
+  A closed failure window (cursor, through] for the failure digest: the count
+  covers EVERY failure in the window (SQL aggregate) while `items` is a
+  bounded oldest-first sample, so the digest can advance past windows bigger
+  than the sample without undercounting.
+  """
+  def failure_digest_window(since, through) do
+    # Count and sample must see the same snapshot: a concurrent retry clearing
+    # the only failure between two reads would produce count>0 with no rows
+    Repo.transaction(fn ->
+      query =
+        MediaQuery.new()
+        |> MediaQuery.require_assoc(:source)
+        |> where(^MediaQuery.errored())
+        |> where([mi], mi.updated_at > ^since and mi.updated_at <= ^through)
+
+      count = Repo.aggregate(query, :count, :id)
+
+      items =
+        query
+        |> order_by([mi], asc: mi.updated_at, asc: mi.id)
+        |> limit(100)
+        |> preload(:source)
+        |> Repo.all()
+
+      %{count: count, items: items}
+    end)
+    |> case do
+      {:ok, window} -> window
+      {:error, reason} -> raise "failure digest window read failed: #{inspect(reason)}"
+    end
+  end
+
+  def count_errored_media_items(opts \\ []) do
+    source_id = Keyword.get(opts, :source_id)
+
+    MediaQuery.new()
+    |> MediaQuery.require_assoc(:source)
+    |> where(^MediaQuery.errored())
+    |> apply_source_filter(source_id)
+    |> Repo.aggregate(:count)
+  end
+
   defp apply_since_filter(query, nil), do: query
   defp apply_since_filter(query, since), do: where(query, [mi], mi.updated_at > ^since)
 

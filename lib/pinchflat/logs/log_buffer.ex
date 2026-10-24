@@ -193,6 +193,38 @@ defmodule Pinchflat.Logs.LogBuffer do
 
   def format_line(%{line: line}), do: line
 
+  # Viewer-only compact rendering: timestamp, level, module (or the derived
+  # source label), request_id when present, then the redacted message. The
+  # Erlang metadata noise (function/PID/file/mfa) is dropped from the VIEWER
+  # only - the stored line and the export keep the full docker-logs format.
+  def format_line(
+        %{
+          time: timestamp,
+          level: level,
+          message: message,
+          metadata: metadata,
+          source: source
+        },
+        :compact
+      ) do
+    module =
+      metadata[:module] ||
+        metadata["module"] ||
+        source ||
+        "App"
+
+    request_id = metadata[:request_id] || metadata["request_id"]
+
+    request =
+      if is_nil(request_id) or request_id == "" do
+        ""
+      else
+        " request_id=#{request_id}"
+      end
+
+    "#{format_timestamp(timestamp)} [#{level}] #{module}#{request} | #{message}"
+  end
+
   @doc """
   Masks token-bearing text: basic-auth URLs, query-string / bare / JSON-body
   credentials (YouTube API keys, tokens, passwords), free-standing AIza…

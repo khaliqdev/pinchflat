@@ -1,13 +1,20 @@
 <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
   <div class="flex flex-col justify-center rounded-sm border px-7.5 py-6 shadow-default border-stroke dark:border-strokedark bg-white dark:bg-boxdark">
-    <a href={~p"/media_profiles"} class="flex flex-col items-center py-2">
-      <span class="text-md font-medium">
-        Media <.pluralize count={@media_profile_count} word="Profile" />
+    <div class="flex flex-col items-center py-2">
+      <span class="text-md font-medium text-zinc-600 dark:text-bodydark">
+        Free Space
       </span>
       <h4 class="text-title-md font-bold text-black dark:text-white">
-        <.localized_number number={@media_profile_count} />
+        <%= if is_integer(@media_free_bytes) do %>
+          <.readable_filesize byte_size={@media_free_bytes} />
+        <% else %>
+          Unavailable
+        <% end %>
       </h4>
-    </a>
+      <span class="text-sm leading-5 text-zinc-600 dark:text-bodydark">
+        Downloads volume
+      </span>
+    </div>
   </div>
   <div class="flex flex-col justify-center rounded-sm border px-7.5 py-6 shadow-default border-stroke dark:border-strokedark bg-white dark:bg-boxdark">
     <a href={~p"/sources"} class="flex flex-col items-center py-2">
@@ -41,7 +48,7 @@
 
 <div
   :if={@media_free_bytes && @media_free_bytes < 10 * 1024 * 1024 * 1024}
-  class="mt-4 flex items-center gap-2 rounded-md border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-amber-400"
+  class="mt-4 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400"
 >
   <.icon name="hero-exclamation-triangle" class="h-5 w-5" />
   <span>
@@ -55,7 +62,7 @@
 <div class="rounded-sm border shadow-default border-stroke dark:border-strokedark bg-white dark:bg-boxdark mt-4 p-5">
   <span class="text-2xl font-medium mb-4 text-black dark:text-white">Media History</span>
   <.tabbed_layout>
-    <:tab title="Downloaded" id="downloaded">
+    <:tab title="Recently Downloaded" id="downloaded">
       {live_render(
         @conn,
         Pinchflat.Pages.HistoryTableLive,

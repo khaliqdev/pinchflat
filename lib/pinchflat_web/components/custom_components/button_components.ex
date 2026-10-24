@@ -23,15 +23,33 @@ defmodule PinchflatWeb.CustomComponents.ButtonComponents do
 
   slot :inner_block, required: true
 
+  @button_color_classes %{
+    "bg-primary" =>
+      "border-transparent bg-primary text-white enabled:hover:bg-opacity-90",
+    "secondary" =>
+      "border-zinc-300 bg-white text-zinc-900 enabled:hover:bg-gray dark:border-form-strokedark dark:bg-form-input dark:text-white dark:enabled:hover:bg-meta-4",
+    "ghost" =>
+      "border-transparent bg-transparent text-zinc-700 enabled:hover:bg-gray dark:text-bodydark1 dark:enabled:hover:bg-meta-4",
+    "bg-danger" =>
+      "border-transparent bg-danger text-white enabled:hover:bg-opacity-90"
+  }
+
   def button(assigns) do
+    assigns =
+      assign(
+        assigns,
+        :color_classes,
+        Map.get(@button_color_classes, assigns.color, assigns.color)
+      )
+
     ~H"""
     <button
       class={[
-        "text-center font-medium text-white whitespace-nowrap",
-        "#{@rounding} inline-flex items-center justify-center px-8 py-4",
-        "#{@color}",
-        "hover:bg-opacity-90 lg:px-8 xl:px-10",
-        "disabled:bg-opacity-50 disabled:cursor-not-allowed disabled:text-grey-5",
+        "inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap border px-4 py-0 text-center text-sm font-medium transition-colors",
+        @rounding,
+        @color_classes,
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark",
+        "disabled:cursor-not-allowed disabled:border-stroke disabled:bg-gray disabled:bg-opacity-100 disabled:text-bodydark2 dark:disabled:border-strokedark dark:disabled:bg-meta-4 dark:disabled:text-bodydark2",
         @class
       ]}
       type={@type}
@@ -62,10 +80,7 @@ defmodule PinchflatWeb.CustomComponents.ButtonComponents do
     <div x-data="{ dropdownOpen: false }" class={["relative flex", @class]}>
       <span
         x-on:click.prevent="dropdownOpen = !dropdownOpen"
-        class={[
-          "cursor-pointer inline-flex gap-2.5 rounded-md bg-primary px-5.5 py-3",
-          "font-medium text-white hover:bg-opacity-95"
-        ]}
+        class="inline-flex h-10 cursor-pointer items-center justify-center gap-2.5 rounded-md bg-primary px-4 py-0 text-sm font-medium text-white hover:bg-opacity-95"
       >
         {@text}
         <CoreComponents.icon
@@ -108,15 +123,14 @@ defmodule PinchflatWeb.CustomComponents.ButtonComponents do
     <TextComponents.tooltip position="bottom" tooltip={@tooltip} tooltip_class="text-nowrap">
       <button
         class={[
-          "flex justify-center items-center rounded-lg ",
-          "bg-form-input border-2 border-strokedark",
-          "hover:bg-meta-4 hover:border-form-strokedark",
+          "flex items-center justify-center rounded-lg border-2 border-zinc-300 bg-white hover:border-form-strokedark hover:bg-gray dark:border-strokedark dark:bg-form-input dark:hover:border-form-strokedark dark:hover:bg-meta-4",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark",
           @class
         ]}
         type="button"
         {@rest}
       >
-        <CoreComponents.icon name={@icon_name} class="text-stroke" />
+        <CoreComponents.icon name={@icon_name} class="text-zinc-700 dark:text-stroke" />
       </button>
     </TextComponents.tooltip>
     """

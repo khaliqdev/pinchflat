@@ -67,6 +67,7 @@ defmodule PinchflatWeb.MediaErrors.MediaErrorController do
 
     render(conn, :index,
       errors: Media.list_errored_media_items(source_id: source_id),
+      total_errored: Media.count_errored_media_items(source_id: source_id),
       sources: Sources.list_sources(),
       source_id: source_id,
       page_title: "Errors"

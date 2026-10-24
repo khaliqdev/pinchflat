@@ -163,11 +163,16 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
     ~H"""
     <span class={[
       "shrink-0 rounded-md border px-1.5 py-0.5 text-xs font-medium leading-4",
-      @status == :downloading && "border-sky-500/20 bg-sky-500/10 text-sky-400 animate-pulse",
-      @status == :downloaded && "border-emerald-500/20 bg-emerald-500/10 text-emerald-400",
-      @status == :failed && "border-red-500/20 bg-red-500/10 text-red-400",
-      @status == :ignored && "border-strokedark bg-meta-4 text-bodydark2",
-      @status == :pending && "border-amber-500/20 bg-amber-500/10 text-amber-400"
+      @status == :downloading &&
+        "animate-pulse border-blue-200 bg-blue-50 text-blue-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-400",
+      @status == :downloaded &&
+        "border-blue-200 bg-blue-50 text-blue-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400",
+      @status == :failed &&
+        "border-red-200 bg-red-50 text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400",
+      @status == :ignored &&
+        "border-stroke bg-gray text-zinc-600 dark:border-strokedark dark:bg-meta-4 dark:text-bodydark2",
+      @status == :pending &&
+        "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400"
     ]}>
       {Atom.to_string(@status) |> String.capitalize()}
     </span>
