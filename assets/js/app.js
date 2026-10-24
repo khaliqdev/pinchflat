@@ -49,6 +49,16 @@ let liveSocket = new LiveSocket(document.body.dataset.socketPath, Socket, {
           }
         })
       }
+    },
+    // The logs viewer pushes "logs:autoscroll" from the server; push_event is
+    // delivered via handleEvent (not a window DOM event), so the scroll
+    // container must consume it through a hook.
+    LogsAutoScroll: {
+      mounted() {
+        this.handleEvent('logs:autoscroll', () => {
+          this.el.scrollTop = this.el.scrollHeight
+        })
+      }
     }
   }
 })

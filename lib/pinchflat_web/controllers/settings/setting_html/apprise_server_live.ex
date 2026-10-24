@@ -35,10 +35,15 @@ defmodule Pinchflat.Settings.AppriseServerLive do
   end
 
   def handle_event("send_apprise_test", _params, %{assigns: assigns} = socket) do
-    backend_runner().run([assigns.value], title: "Pinchflat Test", body: "This is a test message from Pinchflat")
+    {icon, tooltip} =
+      case backend_runner().run([assigns.value], title: "Pinchflat Test", body: "This is a test message from Pinchflat") do
+        {:ok, _} -> {"hero-check", "Sent!"}
+        _ -> {"hero-x-mark", "Failed - check the server URL"}
+      end
+
     Process.send_after(self(), :reset_button_icon, 4_000)
 
-    {:noreply, assign(socket, %{icon_name: "hero-check", tooltip: "Sent!"})}
+    {:noreply, assign(socket, %{icon_name: icon, tooltip: tooltip})}
   end
 
   def handle_event("apprise_server_changed", %{"setting" => setting}, socket) do

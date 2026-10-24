@@ -5,8 +5,12 @@ defmodule PinchflatWeb.MediaErrors.MediaErrorController do
   alias Pinchflat.Media
   alias Pinchflat.Sources
 
-  def retry(conn, _params) do
-    errored_items = Media.list_errored_media_items(limit: 100)
+  def retry(conn, params) do
+    source_id = parse_source_id(params["source_id"])
+    # The errors page renders at most 100 at a time; a retry run covers the
+    # same batch size. Re-running continues through the backlog. The scope
+    # (all sources vs the currently-filtered source) matches the page state.
+    errored_items = Media.list_errored_media_items(source_id: source_id, limit: 100)
     # Only retry items the worker would actually act on: clearing errors on
     # ignored items would un-ignore them, and clearing errors on already-downloaded
     # items would silently hide real breakage. One batched query instead of
@@ -19,8 +23,11 @@ defmodule PinchflatWeb.MediaErrors.MediaErrorController do
       MediaDownloadWorker.kickoff_with_task(item)
     end)
 
+    scope = if source_id, do: "in this source", else: "across all sources"
+    cap_note = if length(errored_items) == 100, do: " Batch covered the most recent 100 failures - run it again for the next batch.", else: ""
+
     conn
-    |> put_flash(:info, "Retried #{length(retryable)} item(s) (skipped #{length(skipped)} ignored or already downloaded)")
+    |> put_flash(:info, "Retried #{length(retryable)} item(s) #{scope} (skipped #{length(skipped)} ignored or already downloaded).#{cap_note}")
     |> redirect(to: ~p"/errors")
   end
 

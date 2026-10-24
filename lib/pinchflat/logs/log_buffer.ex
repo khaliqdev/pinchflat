@@ -210,6 +210,8 @@ defmodule Pinchflat.Logs.LogBuffer do
     |> then(&Regex.replace(~r{([?&\s]|^)(#{@secret_query_keys})=([^&\s"']+)}i, &1, "\\1\\2=****"))
     |> then(&Regex.replace(~r/\bAIza[0-9A-Za-z_-]{10,}\b/, &1, "AIza****"))
     |> then(&Regex.replace(~r{"((?:#{@secret_query_keys}))"\s*:\s*"[^"]*"}i, &1, "\"\\1\": \"****\""))
+    # Phoenix's inspect style, as logged from LiveView params: "_csrf_token" => "..."
+    |> then(&Regex.replace(~r{("[^"]*(?:#{@secret_query_keys})[^"]*")\s*=>\s*"[^"]*"}i, &1, "\\1 => \"****\""))
     |> then(&Regex.replace(~r{(authorization["']?\s*[:=]\s*)("?)(bearer|basic)\s+\S+}i, &1, "\\1\\2\\3 ****"))
   end
 

@@ -97,16 +97,17 @@ defmodule Pinchflat.Pages.LogsLive do
         </div>
 
         <div class="mt-3 flex flex-wrap items-center gap-3">
-          <input
-            type="text"
-            name="search"
-            value={@search}
-            placeholder="Search log lines..."
-            phx-change="search"
-            phx-debounce="200"
-            aria-label="Search log lines"
-            class="w-64 rounded-md border border-stroke bg-transparent px-3 py-1.5 text-sm text-body dark:text-bodydark1 outline-none focus:border-primary dark:border-strokedark"
-          />
+          <.form for={%{}} phx-change="search" class="contents">
+            <input
+              type="text"
+              name="search"
+              value={@search}
+              placeholder="Search log lines..."
+              phx-debounce="200"
+              aria-label="Search log lines"
+              class="w-64 rounded-md border border-stroke bg-transparent px-3 py-1.5 text-sm text-body dark:text-bodydark1 outline-none focus:border-primary dark:border-strokedark"
+            />
+          </.form>
 
           <button
             type="button"
@@ -135,8 +136,8 @@ defmodule Pinchflat.Pages.LogsLive do
 
       <div class="rounded-sm border border-stroke bg-white px-5 py-4 shadow-default dark:border-strokedark dark:bg-boxdark">
         <div
-          x-data="{}"
-          x-init="window.addEventListener('logs:autoscroll', () => { $el.scrollTop = $el.scrollHeight })"
+          id="logs-scroll"
+          phx-hook="LogsAutoScroll"
           class="overflow-y-auto rounded-md border border-stroke bg-gray-2 p-3 font-mono text-xs leading-5 dark:border-strokedark dark:bg-meta-4"
           style="max-height: 70vh"
         >

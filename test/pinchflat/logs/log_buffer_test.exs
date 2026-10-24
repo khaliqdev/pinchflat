@@ -362,4 +362,22 @@ defmodule Pinchflat.Logs.LogBufferTest do
         end
     end
   end
+
+  describe "redaction of Phoenix inspect-style credential pairs" do
+    test "masks token => \"...\" pairs as emitted by LiveView param logging" do
+      LogBuffer.reset!()
+
+      LogBuffer.record(
+        :info,
+        ~s(Parameters: %{"_csrf_token" => "RigBMTUtSECRET", "_mounts" => "0"} |),
+        %{}
+      )
+
+      [entry] = LogBuffer.all()
+      refute entry.line =~ "RigBMTUtSECRET"
+      assert entry.line =~ ~s("_csrf_token" => "****")
+      # non-credential keys stay readable
+      assert entry.line =~ ~s("_mounts" => "0")
+    end
+  end
 end
