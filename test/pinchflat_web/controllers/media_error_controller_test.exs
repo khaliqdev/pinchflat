@@ -44,6 +44,54 @@ defmodule PinchflatWeb.MediaErrorControllerTest do
       assert html =~ "data-confirm-form"
       assert html =~ "text-body dark:text-bodydark1"
     end
+
+    test "shares one group between media items with matching error signatures", %{conn: conn} do
+      media_item_fixture(%{title: "Same A", last_error: "ERROR: transcode failure"})
+      media_item_fixture(%{title: "Same B", last_error: "ERROR: transcode failure"})
+      media_item_fixture(%{title: "Different", last_error: "ERROR: different failure"})
+
+      conn = get(conn, ~p"/errors")
+      html = html_response(conn, 200)
+
+      assert html =~ "data-error-group"
+      assert Enum.count(Regex.scan(~r/id="error-group-\d+"/, html)) == 2
+      assert html =~ "Same A"
+      assert html =~ "Same B"
+      assert html =~ "ERROR: transcode failure"
+    end
+
+    test "renders a checkbox for every errored item on the page", %{conn: conn} do
+      items =
+        Enum.map(["alpha", "beta", "gamma"], fn variant ->
+          media_item_fixture(%{title: "Errored #{variant}", last_error: "ERROR: failure #{variant}"})
+        end)
+
+      conn = get(conn, ~p"/errors")
+      html = html_response(conn, 200)
+
+      checkbox_ids =
+        Regex.scan(~r/name="selected_ids\[\]"\s+value="(\d+)"/, html)
+        |> Enum.map(&List.last/1)
+        |> Enum.map(&String.to_integer/1)
+        |> Enum.sort()
+
+      assert checkbox_ids == items |> Enum.map(& &1.id) |> Enum.sort()
+    end
+
+    test "pageIds covers every rendered item", %{conn: conn} do
+      items =
+        Enum.map(["alpha", "beta"], fn variant ->
+          media_item_fixture(%{title: "Page item #{variant}", last_error: "ERROR: page failure #{variant}"})
+        end)
+
+      conn = get(conn, ~p"/errors")
+      html = html_response(conn, 200)
+
+      assert [_, page_ids_json] = Regex.run(~r/pageIds: (\[[^\]]*\])/, html)
+
+      assert page_ids_json |> Jason.decode!() |> Enum.sort() ==
+               items |> Enum.map(& &1.id) |> Enum.sort()
+    end
   end
   describe "POST /errors/retry" do
     test "retries pending errored items and skips ignored ones", %{conn: conn} do

@@ -41,9 +41,14 @@
       <h3 class="text-2xl text-black dark:text-white">
         General Options
       </h3>
-      <span class="cursor-pointer hover:underline" x-on:click="advancedMode = !advancedMode">
+      <button
+        type="button"
+        class="cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark"
+        x-on:click="advancedMode = !advancedMode"
+        x-bind:aria-pressed="advancedMode ? 'true' : 'false'"
+      >
         Editing Mode: <span x-text="advancedMode ? 'Advanced' : 'Standard'"></span>
-      </span>
+      </button>
     </section>
     <section x-data="{ 
         presets: { 
@@ -266,13 +271,11 @@
       Try the "Media Center" preset if you're not sure.
     </p>
 
-    <section
-      phx-click={show_modal("upgrade-modal")}
-      x-data="{ presets: { default: false, media_center: true, audio: false, archiving: false } }"
-    >
+    <section x-data="{ presets: { default: false, media_center: true, audio: false, archiving: false } }">
       <.input
         field={f[:download_nfo]}
         type="toggle"
+        toggle_click={show_modal("upgrade-modal")}
         label="Download NFO data"
         label_suffix="(pro)"
         help="Downloads NFO data alongside media file for use with Jellyfin, Kodi, etc."

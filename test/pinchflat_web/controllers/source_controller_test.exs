@@ -41,6 +41,53 @@ defmodule PinchflatWeb.SourceControllerTest do
     end
   end
 
+  describe "show operational summary" do
+    test "renders the media profile name and link", %{conn: conn} do
+      media_profile = media_profile_fixture(%{name: "Operation Summary Profile"})
+      source = source_fixture(%{media_profile_id: media_profile.id})
+
+      conn = get(conn, ~p"/sources/#{source.id}")
+      response = html_response(conn, 200)
+
+      assert response =~ "Operation Summary Profile"
+      assert response =~ "/media_profiles/#{media_profile.id}"
+    end
+
+    test "renders the never-indexed state", %{conn: conn} do
+      source = source_fixture(%{last_indexed_at: nil})
+
+      conn = get(conn, ~p"/sources/#{source.id}")
+      response = html_response(conn, 200)
+
+      assert response =~ "Awaiting first index"
+      assert response =~ "Never"
+    end
+
+    test "renders technical details as a details element without an open attribute", %{conn: conn} do
+      source = source_fixture()
+
+      conn = get(conn, ~p"/sources/#{source.id}")
+      response = html_response(conn, 200)
+
+      assert response =~ ~s(<details class="border-t border-stroke pt-4 dark:border-strokedark">)
+      assert response =~ "Technical details"
+    end
+
+    test "renders Source as the first tab", %{conn: conn} do
+      source = source_fixture()
+
+      conn = get(conn, ~p"/sources/#{source.id}")
+      response = html_response(conn, 200)
+
+      source_pos = :binary.match(response, ~s(<span class="text-xl">Source</span>))
+      pending_pos = :binary.match(response, ~s(<span class="text-xl">Pending</span>))
+
+      assert match?({_, _}, source_pos)
+      assert match?({_, _}, pending_pos)
+      assert elem(source_pos, 0) < elem(pending_pos, 0)
+    end
+  end
+
   describe "new source" do
     test "renders form", %{conn: conn} do
       conn = get(conn, ~p"/sources/new")

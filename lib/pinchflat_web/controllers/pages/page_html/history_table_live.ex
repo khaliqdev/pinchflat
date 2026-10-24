@@ -60,7 +60,7 @@ defmodule Pinchflat.Pages.HistoryTableLive do
             </section>
           </:col>
           <:col :let={media_item} label="Upload Date">
-            {DateTime.to_date(media_item.uploaded_at)}
+            {Pinchflat.Utils.DisplayTime.date_to_local(media_item.uploaded_at)}
           </:col>
           <:col :let={media_item} label="Indexed At">
             {format_datetime(media_item.inserted_at)}

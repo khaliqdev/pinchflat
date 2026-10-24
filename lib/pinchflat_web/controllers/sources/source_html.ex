@@ -74,8 +74,13 @@ defmodule PinchflatWeb.Sources.SourceHTML do
   end
 
   def output_path_template_override_help do
-    help_button_classes = "underline decoration-bodydark decoration-1 hover:decoration-white cursor-pointer"
-    help_button = ~s{<span class="#{help_button_classes}" x-on:click="$dispatch('load-template')">Click here</span>}
+    help_button_classes =
+      "underline decoration-bodydark decoration-1 hover:decoration-white cursor-pointer " <>
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary " <>
+        "focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark"
+
+    help_button =
+      ~s{<button type="button" class="#{help_button_classes}" x-on:click="$dispatch('load-template')">Click here</button>}
 
     """
     Must end with .{{ ext }}. Same rules as Media Profile output path templates. #{help_button} to load your media profile's output template

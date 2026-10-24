@@ -15,9 +15,14 @@
       <h3 class="text-2xl text-black dark:text-white">
         General Options
       </h3>
-      <span class="cursor-pointer hover:underline" x-on:click="advancedMode = !advancedMode">
+      <button
+        type="button"
+        class="cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark"
+        x-on:click="advancedMode = !advancedMode"
+        x-bind:aria-pressed="advancedMode ? 'true' : 'false'"
+      >
         Editing Mode: <span x-text="advancedMode ? 'Advanced' : 'Standard'"></span>
-      </span>
+      </button>
     </section>
 
     <.input
@@ -96,18 +101,19 @@
         help="Indexing is the process of checking for media to download. For best results, set this to the longest delay you can tolerate for this source"
       />
 
-      <div phx-click={show_modal("upgrade-modal")}>
+      <div>
         <.input
           field={f[:fast_index]}
           type="toggle"
+          toggle_click={show_modal("upgrade-modal")}
           label="Use Fast Indexing"
           label_suffix="(pro)"
           help="Not recommended for playlists. Overrides 'Index Frequency'. See below for more details (seriously, there's a TL;DR that's worth reading)"
           x-init="
-          // `enabled` is the data attribute that the toggle uses internally
-          fastIndexingEnabled = enabled
-          $watch('enabled', value => fastIndexingEnabled = !!value)
-        "
+            // `enabled` is the data attribute that the toggle uses internally
+            fastIndexingEnabled = enabled
+            $watch('enabled', value => fastIndexingEnabled = !!value)
+          "
         />
       </div>
     </section>

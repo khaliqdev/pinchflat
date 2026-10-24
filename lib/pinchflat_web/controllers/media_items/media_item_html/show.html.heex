@@ -40,7 +40,7 @@
               </div>
               <aside class="mt-4">
                 <h2 class="text-xl mb-2">{@media_item.title}</h2>
-                <div>Uploaded: {DateTime.to_date(@media_item.uploaded_at)}</div>
+                <div>Uploaded: {Pinchflat.Utils.DisplayTime.date_to_local(@media_item.uploaded_at)}</div>
                 <div>
                   <span :if={URI.parse(@media_item.original_url).scheme =~ "http"}>
                     <.subtle_link href={@media_item.original_url} target="_blank">Open Original</.subtle_link>

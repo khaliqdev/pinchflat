@@ -3,6 +3,7 @@ defmodule PinchflatWeb.MediaErrors.MediaErrorController do
 
   alias Pinchflat.Downloading.MediaDownloadWorker
   alias Pinchflat.Media
+  alias Pinchflat.Media.ErrorSignature
   alias Pinchflat.Sources
 
   def retry(conn, params) do
@@ -64,9 +65,11 @@ defmodule PinchflatWeb.MediaErrors.MediaErrorController do
 
   def index(conn, params) do
     source_id = parse_source_id(params["source_id"])
+    errors = Media.list_errored_media_items(source_id: source_id)
 
     render(conn, :index,
-      errors: Media.list_errored_media_items(source_id: source_id),
+      errors: errors,
+      error_groups: ErrorSignature.group(errors),
       total_errored: Media.count_errored_media_items(source_id: source_id),
       sources: Sources.list_sources(),
       source_id: source_id,

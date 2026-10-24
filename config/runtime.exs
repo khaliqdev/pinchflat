@@ -25,6 +25,12 @@ config :pinchflat,
   basic_auth_username: System.get_env("BASIC_AUTH_USERNAME"),
   basic_auth_password: System.get_env("BASIC_AUTH_PASSWORD")
 
+# Read at boot by check_and_update_timezone/0 in application.ex, which validates
+# the zone and mirrors it into :timezone. Kept outside the production-only block
+# below so dev, test, and display conversion honor it too
+config :pinchflat,
+  display_timezone: System.get_env("TIMEZONE") || System.get_env("TZ") || "UTC"
+
 arch_string = to_string(:erlang.system_info(:system_architecture))
 
 system_arch =

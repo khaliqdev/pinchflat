@@ -63,7 +63,17 @@ defmodule Pinchflat.Application do
   # This has to be here (rather than runtime.exs) since the `tzdata` application
   # has to be started before we can check the timezone
   defp check_and_update_timezone do
-    attempted_timezone = System.get_env("TIMEZONE") || System.get_env("TZ") || "UTC"
+    attempted_timezone =
+      case Application.get_env(:pinchflat, :display_timezone, "UTC") do
+        value when is_binary(value) ->
+          case String.trim(value) do
+            "" -> "UTC"
+            timezone -> timezone
+          end
+
+        _ ->
+          "UTC"
+      end
 
     valid_timezone =
       if Tzdata.zone_exists?(attempted_timezone) do
@@ -74,5 +84,6 @@ defmodule Pinchflat.Application do
       end
 
     Application.put_env(:pinchflat, :timezone, valid_timezone)
+    Application.put_env(:pinchflat, :display_timezone, valid_timezone)
   end
 end

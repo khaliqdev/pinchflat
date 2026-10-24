@@ -39,14 +39,33 @@ defmodule PinchflatWeb.CustomComponents.TableComponents do
             class={["px-4 py-4 font-medium text-black dark:text-white", col[:sort_key] && "cursor-pointer"]}
             phx-click={col[:sort_key] && "sort_update"}
             phx-value-sort_key={col[:sort_key]}
+            aria-sort={
+              cond do
+                !col[:sort_key] -> nil
+                to_string(@sort_key) != col[:sort_key] -> "none"
+                @sort_direction == :asc -> "ascending"
+                true -> "descending"
+              end
+            }
           >
             <div class="relative">
-              {col[:label]}
-              <.icon
-                :if={to_string(@sort_key) == col[:sort_key]}
-                name={if @sort_direction == :asc, do: "hero-chevron-up", else: "hero-chevron-down"}
-                class="w-3 h-3 mt-2 ml-1 absolute"
-              />
+              <%= if col[:sort_key] do %>
+                <button
+                  type="button"
+                  phx-click="sort_update"
+                  phx-value-sort_key={col[:sort_key]}
+                  class="text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark"
+                >
+                  {col[:label]}
+                  <.icon
+                    :if={to_string(@sort_key) == col[:sort_key]}
+                    name={if @sort_direction == :asc, do: "hero-chevron-up", else: "hero-chevron-down"}
+                    class="w-3 h-3 mt-2 ml-1 absolute"
+                  />
+                </button>
+              <% else %>
+                {col[:label]}
+              <% end %>
             </div>
           </th>
         </tr>
@@ -80,38 +99,50 @@ defmodule PinchflatWeb.CustomComponents.TableComponents do
 
   def live_pagination_controls(assigns) do
     ~H"""
-    <nav>
+    <nav aria-label="Pagination">
       <ul class="flex flex-wrap items-center">
         <li>
-          <span
+          <button
+            type="button"
+            aria-label="Previous page"
+            disabled={@page_number <= 1}
             class={[
-              "pagination-prev h-8 w-8 items-center justify-center rounded",
+              "pagination-prev h-8 w-8 flex items-center justify-center rounded",
               @page_number != 1 && "cursor-pointer hover:bg-primary hover:text-white",
-              @page_number <= 1 && "cursor-not-allowed"
+              @page_number <= 1 && "cursor-not-allowed",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark"
             ]}
             phx-click={@page_number != 1 && "page_change"}
             phx-value-direction="dec"
           >
             <.icon name="hero-chevron-left" />
-          </span>
+          </button>
         </li>
+
         <li>
           <span class="mx-2">
-            Page <.localized_number number={@page_number} /> of <.localized_number number={@total_pages} />
+            Page <.localized_number number={@page_number} />
+            of <.localized_number number={@total_pages} />
           </span>
         </li>
+
         <li>
-          <span
+          <button
+            type="button"
+            aria-label="Next page"
+            disabled={@page_number >= @total_pages}
             class={[
-              "pagination-next flex h-8 w-8 items-center justify-center rounded",
-              @page_number != @total_pages && "cursor-pointer hover:bg-primary hover:text-white",
-              @page_number >= @total_pages && "cursor-not-allowed"
+              "pagination-next h-8 w-8 flex items-center justify-center rounded",
+              @page_number != @total_pages &&
+                "cursor-pointer hover:bg-primary hover:text-white",
+              @page_number >= @total_pages && "cursor-not-allowed",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark"
             ]}
             phx-click={@page_number != @total_pages && "page_change"}
             phx-value-direction="inc"
           >
             <.icon name="hero-chevron-right" />
-          </span>
+          </button>
         </li>
       </ul>
     </nav>

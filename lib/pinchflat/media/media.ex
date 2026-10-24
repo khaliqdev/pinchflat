@@ -209,51 +209,35 @@ defmodule Pinchflat.Media do
   end
 
   @doc """
-  Lists media items for the read-only JSON API, optionally filtered by state
-  ("errored" | "pending" | "downloaded" | "downloading") and paginated with
-  limit/offset.
+  Counts the source detail table states and recorded errors in one query.
 
-  Returns [%MediaItem{}, ...]
+  Failed items overlap the pending/downloaded/other states.
   """
-  def list_media_items_for_api(state, opts \\ []) do
-    limit = opts[:limit] || 100
-    offset = opts[:offset] || 0
-    source_id = opts[:source_id]
+  def source_summary_counts(%Source{} = source) do
+    base = fn extra ->
+      MediaQuery.new()
+      |> MediaQuery.require_assoc(:media_profile)
+      |> where(^MediaQuery.for_source(source))
+      |> where(^extra)
+    end
 
-    MediaQuery.new()
-    |> MediaQuery.require_assoc(:media_profile)
-    |> apply_state_filter(state)
-    |> apply_api_source_filter(source_id)
-    |> order_by([mi], desc: mi.id)
-    |> limit(^limit)
-    |> offset(^offset)
-    |> Repo.all()
+    other =
+      MediaQuery.new()
+      |> MediaQuery.require_assoc(:media_profile)
+      |> where(^MediaQuery.for_source(source))
+      |> where(^dynamic(not (^MediaQuery.downloaded()) and not (^MediaQuery.pending())))
+
+    %{
+      pending_count: Repo.aggregate(base.(MediaQuery.pending()), :count, :id),
+      downloaded_count: Repo.aggregate(base.(MediaQuery.downloaded()), :count, :id),
+      failed_count: Repo.aggregate(base.(MediaQuery.errored()), :count, :id),
+      other_count: Repo.aggregate(other, :count, :id)
+    }
   end
-
-  defp apply_state_filter(query, "errored"), do: where(query, [mi], ^MediaQuery.errored())
-  defp apply_state_filter(query, "pending"), do: where(query, [mi], ^MediaQuery.pending())
-  defp apply_state_filter(query, "downloaded"), do: where(query, [mi], ^MediaQuery.downloaded())
-
-  defp apply_state_filter(query, "downloading") do
-    # Eager list (executing set is tiny by construction) rather than a
-    # correlated subquery, matching downloading_media_item_ids/0
-    ids = downloading_media_item_ids()
-
-    if ids == [],
-      do: where(query, false),
-      else: where(query, [mi], mi.id in ^ids)
-  end
-
-  defp apply_state_filter(query, _), do: query
-
-  defp apply_api_source_filter(query, nil), do: query
-  defp apply_api_source_filter(query, source_id), do: where(query, [mi], mi.source_id == ^source_id)
 
   @doc """
-  Lists media items that have a recorded error, most recently errored first.
-  Optionally scoped to one source. Used by the errors console (upstream #870).
-
-  Returns [%MediaItem{}, ...]
+  Lists errored media items, oldest first. Options: :source_id, :since,
+  :limit (default 100). Powers the errors console and the failure digest.
   """
   def list_errored_media_items(opts \\ []) do
     source_id = Keyword.get(opts, :source_id)
@@ -275,6 +259,25 @@ defmodule Pinchflat.Media do
   Counts errored media items, same filters as `list_errored_media_items/1`
   without the limit - the errors console shows "showing 100 of N".
   """
+  @doc """
+  Lists media items for the read-only API. Options: :limit, :offset, :source_id.
+  `state` accepts the API state atoms (pending/downloaded/etc).
+  """
+  def list_media_items_for_api(state, opts \\ []) do
+    limit = opts[:limit] || 100
+    offset = opts[:offset] || 0
+    source_id = opts[:source_id]
+
+    MediaQuery.new()
+    |> MediaQuery.require_assoc(:media_profile)
+    |> apply_state_filter(state)
+    |> apply_api_source_filter(source_id)
+    |> order_by([mi], desc: mi.id)
+    |> limit(^limit)
+    |> offset(^offset)
+    |> Repo.all()
+  end
+
   @doc """
   A closed failure window (cursor, through] for the failure digest: the count
   covers EVERY failure in the window (SQL aggregate) while `items` is a
@@ -317,6 +320,25 @@ defmodule Pinchflat.Media do
     |> apply_source_filter(source_id)
     |> Repo.aggregate(:count)
   end
+
+  defp apply_state_filter(query, "errored"), do: where(query, [mi], ^MediaQuery.errored())
+  defp apply_state_filter(query, "pending"), do: where(query, [mi], ^MediaQuery.pending())
+  defp apply_state_filter(query, "downloaded"), do: where(query, [mi], ^MediaQuery.downloaded())
+
+  defp apply_state_filter(query, "downloading") do
+    # Eager list (executing set is tiny by construction) rather than a
+    # correlated subquery, matching downloading_media_item_ids/0
+    ids = downloading_media_item_ids()
+
+    if ids == [],
+      do: where(query, false),
+      else: where(query, [mi], mi.id in ^ids)
+  end
+
+  defp apply_state_filter(query, _), do: query
+
+  defp apply_api_source_filter(query, nil), do: query
+  defp apply_api_source_filter(query, source_id), do: where(query, [mi], mi.source_id == ^source_id)
 
   defp apply_since_filter(query, nil), do: query
   defp apply_since_filter(query, since), do: where(query, [mi], mi.updated_at > ^since)

@@ -115,11 +115,26 @@ defmodule PinchflatWeb.CustomComponents.TextComponents do
   attr :timezone, :string, default: nil
 
   def datetime_in_zone(assigns) do
-    timezone = assigns.timezone || Application.get_env(:pinchflat, :timezone)
-    assigns = Map.put(assigns, :timezone, timezone)
+    timezone =
+      Map.get(assigns, :timezone) ||
+        Application.get_env(:pinchflat, :display_timezone, "UTC")
+
+    assigns =
+      assigns
+      |> assign_new(:format, fn -> "%Y-%m-%d %H:%M:%S" end)
+      |> assign(
+        :local_datetime,
+        Pinchflat.Utils.DisplayTime.to_local(assigns.datetime, timezone)
+      )
 
     ~H"""
-    <time>{Calendar.strftime(Timex.Timezone.convert(@datetime, @timezone), @format)}</time>
+    <time
+      :if={@local_datetime}
+      datetime={DateTime.to_iso8601(@local_datetime)}
+      title={@local_datetime.time_zone}
+    >
+      {Calendar.strftime(@local_datetime, @format)}
+    </time>
     """
   end
 

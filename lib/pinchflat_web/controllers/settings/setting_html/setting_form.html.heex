@@ -14,9 +14,14 @@
       <h3 class="text-2xl text-black dark:text-white">
         Notification Settings
       </h3>
-      <span class="cursor-pointer hover:underline" x-on:click="advancedMode = !advancedMode">
+      <button
+        type="button"
+        class="cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark"
+        x-on:click="advancedMode = !advancedMode"
+        x-bind:aria-pressed="advancedMode ? 'true' : 'false'"
+      >
         Editing Mode: <span x-text="advancedMode ? 'Advanced' : 'Standard'"></span>
-      </span>
+      </button>
     </section>
 
     {live_render(

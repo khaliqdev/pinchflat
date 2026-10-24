@@ -77,10 +77,17 @@ defmodule PinchflatWeb.CustomComponents.ButtonComponents do
 
   def button_dropdown(assigns) do
     ~H"""
-    <div x-data="{ dropdownOpen: false }" class={["relative flex", @class]}>
-      <span
+    <div
+      x-data="{ dropdownOpen: false }"
+      x-on:keydown.escape.stop="dropdownOpen = false; $refs.dropdownTrigger.focus()"
+      class={["relative flex", @class]}
+    >
+      <button
+        type="button"
+        x-ref="dropdownTrigger"
         x-on:click.prevent="dropdownOpen = !dropdownOpen"
-        class="inline-flex h-10 cursor-pointer items-center justify-center gap-2.5 rounded-md bg-primary px-4 py-0 text-sm font-medium text-white hover:bg-opacity-95"
+        x-bind:aria-expanded="dropdownOpen ? 'true' : 'false'"
+        class="inline-flex h-10 cursor-pointer items-center justify-center gap-2.5 rounded-md bg-primary px-4 py-0 text-sm font-medium text-white hover:bg-opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark"
       >
         {@text}
         <CoreComponents.icon
@@ -88,17 +95,19 @@ defmodule PinchflatWeb.CustomComponents.ButtonComponents do
           class="fill-current duration-200 ease-linear mt-1"
           x-bind:class="dropdownOpen && 'rotate-180'"
         />
-      </span>
+      </button>
+
       <div
+        x-cloak
         x-show="dropdownOpen"
         x-on:click.outside="dropdownOpen = false"
         class="absolute left-0 top-full z-40 mt-2 w-full rounded-md bg-black py-3 shadow-card"
       >
         <ul class="flex flex-col">
           <li :for={option <- @option}>
-            <span class="flex px-5 py-2 font-medium text-bodydark2 hover:text-white cursor-pointer">
+            <div class="flex px-5 py-2 font-medium text-bodydark2 hover:text-white cursor-pointer">
               {render_slot(option)}
-            </span>
+            </div>
           </li>
         </ul>
       </div>

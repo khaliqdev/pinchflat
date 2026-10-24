@@ -108,7 +108,7 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
           <.icon name={if media_item.prevent_download, do: "hero-check", else: "hero-x-mark"} />
         </:col>
         <:col :let={media_item} label="Upload Date">
-          {DateTime.to_date(media_item.uploaded_at)}
+          {Pinchflat.Utils.DisplayTime.date_to_local(media_item.uploaded_at)}
         </:col>
         <:col :let={media_item} label="" class="flex justify-end">
           <.icon_link href={~p"/sources/#{@source.id}/media/#{media_item.id}/edit"} icon="hero-pencil-square" class="mr-4" />

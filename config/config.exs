@@ -28,6 +28,7 @@ config :pinchflat,
   expose_feed_endpoints: false,
   file_watcher_poll_interval: 1000,
   timezone: "UTC",
+  display_timezone: "UTC",
   base_route_path: "/"
 
 config :pinchflat, Pinchflat.Repo,

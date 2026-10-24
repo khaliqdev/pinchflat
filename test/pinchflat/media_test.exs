@@ -407,6 +407,49 @@ defmodule Pinchflat.MediaTest do
     end
   end
 
+  describe "source_summary_counts/1" do
+    test "returns four zero counts for an empty source" do
+      source = source_fixture()
+
+      assert Media.source_summary_counts(source) == %{
+               pending_count: 0,
+               downloaded_count: 0,
+               other_count: 0,
+               failed_count: 0
+             }
+    end
+
+    test "excludes media items from other sources" do
+      source = source_fixture()
+      other_source = source_fixture()
+
+      _other_pending = media_item_fixture(%{source_id: other_source.id, media_filepath: nil})
+      _other_downloaded = media_item_fixture(%{source_id: other_source.id})
+      _media_item = media_item_fixture(%{source_id: source.id, media_filepath: nil})
+
+      assert %{pending_count: 1, downloaded_count: 0, other_count: 0, failed_count: 0} =
+               Media.source_summary_counts(source)
+    end
+
+    test "counts an errored item as both pending and failed" do
+      source = source_fixture()
+
+      media_item_fixture(%{source_id: source.id, media_filepath: nil, last_error: "ERROR: something went wrong"})
+
+      assert %{pending_count: 1, downloaded_count: 0, other_count: 0, failed_count: 1} =
+               Media.source_summary_counts(source)
+    end
+
+    test "counts a prevented item in other" do
+      source = source_fixture()
+
+      media_item_fixture(%{source_id: source.id, media_filepath: nil, prevent_download: true})
+
+      assert %{pending_count: 0, downloaded_count: 0, other_count: 1, failed_count: 0} =
+               Media.source_summary_counts(source)
+    end
+  end
+
   describe "downloading_media_items/0" do
     alias Pinchflat.Downloading.MediaDownloadWorker
     alias Pinchflat.FastIndexing.FastIndexingWorker

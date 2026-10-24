@@ -52,14 +52,18 @@ defmodule PinchflatWeb.Layouts do
 
     ~H"""
     <li class="text-bodydark1" x-data={"{ selected: #{@initially_selected} }"}>
-      <span
+      <button
+        type="button"
         class={[
           "font-medium cursor-pointer",
           "group relative flex items-center justify-between rounded-sm px-4 py-2 duration-300 ease-in-out",
           "duration-300 ease-in-out",
-          "hover:bg-meta-4"
+          "hover:bg-meta-4",
+          "w-full text-left",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark"
         ]}
         x-on:click="selected = !selected"
+        x-bind:aria-expanded="selected ? 'true' : 'false'"
       >
         <span class="flex items-center gap-2.5">
           <.icon name={@icon} /> {@text}
@@ -67,7 +71,7 @@ defmodule PinchflatWeb.Layouts do
         <span class="text-bodydark2">
           <.icon name="hero-chevron-down" x-bind:class="{ 'rotate-180': selected }" />
         </span>
-      </span>
+      </button>
 
       <ul x-cloak x-show="selected">
         <li :for={menu <- @submenu} class="text-bodydark2">

@@ -29,19 +29,177 @@
       </:tab_append>
 
       <:tab title="Source" id="source">
-        <div class="flex flex-col text-black dark:text-white gap-10">
-          <section>
-            <h3 class="font-bold text-xl mb-2 mt-6">Raw Attributes</h3>
-            <section>
-              <strong>Media Profile:</strong>
-              <.subtle_link href={~p"/media_profiles/#{@source.media_profile_id}"}>
-                {@source.media_profile.name}
-              </.subtle_link>
-            </section>
+        <section
+          aria-labelledby="source-summary-title"
+          class="space-y-6 py-2 text-black dark:text-white"
+        >
+          <div>
+            <h3 id="source-summary-title" class="mb-3 text-xl font-bold">
+              Operational summary
+            </h3>
 
-            <.list_items_from_map map={Map.from_struct(@source)} />
-          </section>
-        </div>
+            <div class="flex flex-wrap items-center gap-2">
+              <span class={[
+                "shrink-0 rounded-md border px-1.5 py-0.5 text-xs font-medium leading-4",
+                @source.enabled &&
+                  "border-blue-200 bg-blue-50 text-blue-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400",
+                !@source.enabled &&
+                  "border-stroke bg-gray text-zinc-600 dark:border-strokedark dark:bg-meta-4 dark:text-bodydark2"
+              ]}>
+                {if @source.enabled, do: "Enabled", else: "Disabled"}
+              </span>
+
+              <span class="shrink-0 rounded-md border border-stroke bg-gray px-1.5 py-0.5 text-xs font-medium leading-4 text-zinc-600 dark:border-strokedark dark:bg-meta-4 dark:text-bodydark2">
+                {if @source.download_media, do: "Downloads enabled", else: "Index only"}
+              </span>
+
+              <span
+                :if={@source.fast_index}
+                class="shrink-0 rounded-md border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-xs font-medium leading-4 text-blue-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-400"
+              >
+                Fast indexing
+              </span>
+
+              <span
+                :if={@source.marked_for_deletion_at}
+                class="shrink-0 rounded-md border border-red-200 bg-red-50 px-1.5 py-0.5 text-xs font-medium leading-4 text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400"
+              >
+                Deletion pending
+              </span>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-2" aria-label="Media counts">
+            <span class="shrink-0 rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-medium leading-4 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400">
+              Pending: <.localized_number number={@pending_count} />
+            </span>
+
+            <span class="shrink-0 rounded-md border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-xs font-medium leading-4 text-blue-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400">
+              Downloaded: <.localized_number number={@downloaded_count} />
+            </span>
+
+            <span class="shrink-0 rounded-md border border-stroke bg-gray px-1.5 py-0.5 text-xs font-medium leading-4 text-zinc-600 dark:border-strokedark dark:bg-meta-4 dark:text-bodydark2">
+              Other: <.localized_number number={@other_count} />
+            </span>
+
+            <span class="shrink-0 rounded-md border border-red-200 bg-red-50 px-1.5 py-0.5 text-xs font-medium leading-4 text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400">
+              Failed: <.localized_number number={@failed_count} />
+            </span>
+          </div>
+
+          <p class="text-sm text-zinc-600 dark:text-bodydark">
+            Failed items can also appear in Pending, Downloaded, or Other.
+          </p>
+
+          <dl class="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 xl:grid-cols-3">
+            <div class="min-w-0">
+              <dt class="text-sm text-zinc-600 dark:text-bodydark">Last full index</dt>
+              <dd class="mt-1">
+                <%= if @last_indexed_at do %>
+                  <.datetime_in_zone datetime={@last_indexed_at} />
+                <% else %>
+                  Never
+                <% end %>
+              </dd>
+            </div>
+
+            <div class="min-w-0">
+              <dt class="text-sm text-zinc-600 dark:text-bodydark">
+                Next full index — estimate
+              </dt>
+              <dd class="mt-1">
+                <%= cond do %>
+                  <% @source.marked_for_deletion_at -> %>
+                    Deletion pending
+                  <% !@source.enabled -> %>
+                    Indexing disabled
+                  <% !@last_indexed_at -> %>
+                    Awaiting first index
+                  <% @next_index_at -> %>
+                    <.datetime_in_zone datetime={@next_index_at} />
+                  <% true -> %>
+                    No recurring full index
+                <% end %>
+              </dd>
+            </div>
+
+            <div class="min-w-0">
+              <dt class="text-sm text-zinc-600 dark:text-bodydark">Full-index interval</dt>
+              <dd class="mt-1">
+                <%= if @source.index_frequency_minutes > 0 do %>
+                  <.localized_number number={@source.index_frequency_minutes} /> minutes
+                <% else %>
+                  Once when first created
+                <% end %>
+              </dd>
+            </div>
+
+            <div class="min-w-0">
+              <dt class="text-sm text-zinc-600 dark:text-bodydark">Media profile</dt>
+              <dd class="mt-1 break-words">
+                <.subtle_link href={@profile_href}>{@profile_name}</.subtle_link>
+              </dd>
+            </div>
+
+            <div class="min-w-0">
+              <dt class="text-sm text-zinc-600 dark:text-bodydark">Cookies</dt>
+              <dd class="mt-1 break-words">{@cookie_behaviour_label}</dd>
+            </div>
+
+            <div class="min-w-0">
+              <dt class="text-sm text-zinc-600 dark:text-bodydark">Download cutoff</dt>
+              <dd class="mt-1">
+                {if @download_cutoff_date,
+                  do: Date.to_iso8601(@download_cutoff_date),
+                  else: "No cutoff"}
+              </dd>
+            </div>
+
+            <div class="min-w-0 sm:col-span-2 xl:col-span-3">
+              <dt class="text-sm text-zinc-600 dark:text-bodydark">Original URL</dt>
+              <dd class="mt-1 break-all">
+                <.inline_link href={@original_url}>{@original_url}</.inline_link>
+              </dd>
+            </div>
+
+            <div class="min-w-0 sm:col-span-2 xl:col-span-3">
+              <dt class="text-sm text-zinc-600 dark:text-bodydark">
+                {@output_directory_label}
+              </dt>
+              <dd class="mt-1 break-all font-mono text-sm">{@output_directory}</dd>
+              <dd
+                :if={!@output_directory_resolved}
+                class="mt-1 text-sm text-zinc-600 dark:text-bodydark"
+              >
+                The final source directory has not been resolved yet.
+              </dd>
+            </div>
+
+            <div class="min-w-0 sm:col-span-2 xl:col-span-3">
+              <dt class="text-sm text-zinc-600 dark:text-bodydark">
+                Effective output template
+              </dt>
+              <dd class="mt-1 break-all font-mono text-sm">
+                {@effective_output_path_template}
+              </dd>
+            </div>
+          </dl>
+
+          <p :if={@source.fast_index} class="text-sm text-zinc-600 dark:text-bodydark">
+            Fast indexing checks separately every
+            {Pinchflat.Sources.Source.fast_index_frequency()} minutes.
+            The times above describe full indexing.
+          </p>
+
+          <details class="border-t border-stroke pt-4 dark:border-strokedark">
+            <summary class="cursor-pointer rounded-sm text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark">
+              Technical details
+            </summary>
+            <div class="mt-4 overflow-x-auto">
+              <.list_items_from_map map={Map.from_struct(@source)} />
+            </div>
+          </details>
+        </section>
       </:tab>
       <:tab title="Pending" id="pending">
         {live_render(

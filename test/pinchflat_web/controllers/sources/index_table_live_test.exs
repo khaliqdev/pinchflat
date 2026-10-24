@@ -98,7 +98,7 @@ defmodule PinchflatWeb.Sources.SourceLive.IndexTableLiveTest do
       assert render_element(view, "tbody") =~ source1.custom_name
       refute render_element(view, "tbody") =~ source2.custom_name
 
-      click_element(view, "span.pagination-next")
+      click_element(view, "button.pagination-next")
 
       refute render_element(view, "tbody") =~ source1.custom_name
       assert render_element(view, "tbody") =~ source2.custom_name

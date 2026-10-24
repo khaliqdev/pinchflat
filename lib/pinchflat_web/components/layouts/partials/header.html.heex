@@ -9,7 +9,10 @@
       </.link>
 
       <button
-        class="z-99999 block rounded-sm border border-stroke bg-white p-1.5 shadow-sm dark:border-strokedark dark:bg-boxdark lg:hidden"
+        type="button"
+        aria-label="Toggle sidebar"
+        x-bind:aria-expanded="sidebarVisible ? 'true' : 'false'"
+        class="z-99999 block rounded-sm border border-stroke bg-white p-1.5 shadow-sm dark:border-strokedark dark:bg-boxdark lg:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark"
         @click.stop="sidebarVisible = !sidebarVisible"
       >
         <.icon name="hero-bars-3" />

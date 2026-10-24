@@ -127,8 +127,58 @@ defmodule PinchflatWeb.Sources.SourceController do
       |> Tasks.list_tasks_for(nil, [:executing, :available, :scheduled, :retryable])
       |> Repo.preload(:job)
 
-    render(conn, :show, source: source, pending_tasks: pending_tasks)
+    cookie_behaviour_label =
+      case {source.cookie_behaviour, source.cookies_required} do
+        {:disabled, _} ->
+          "Disabled"
+
+        {:all_operations, _} ->
+          "All operations"
+
+        {:when_needed, true} ->
+          "When needed — now using cookies for all operations"
+
+        {:when_needed, false} ->
+          "When needed — indexing and error recovery"
+      end
+
+    summary_assigns = %{
+      source: source,
+      pending_tasks: pending_tasks,
+      last_indexed_at: source.last_indexed_at,
+      next_index_at: next_index_at(source),
+      output_directory:
+        source.series_directory || Application.fetch_env!(:pinchflat, :media_directory),
+      output_directory_label:
+        if(source.series_directory,
+          do: "Last resolved source directory",
+          else: "Configured media root"
+        ),
+      output_directory_resolved: not is_nil(source.series_directory),
+      effective_output_path_template: Sources.output_path_template(source),
+      profile_name: source.media_profile.name,
+      profile_href: ~p"/media_profiles/#{source.media_profile_id}",
+      original_url: source.original_url,
+      cookie_behaviour_label: cookie_behaviour_label,
+      download_cutoff_date: source.download_cutoff_date
+    }
+
+    render(
+      conn,
+      :show,
+      Map.merge(Media.source_summary_counts(source), summary_assigns)
+    )
   end
+
+  defp next_index_at(%Source{
+         last_indexed_at: %DateTime{} = last_indexed_at,
+         index_frequency_minutes: minutes
+       })
+       when is_integer(minutes) and minutes > 0 do
+    DateTime.add(last_indexed_at, minutes * 60, :second)
+  end
+
+  defp next_index_at(%Source{}), do: nil
 
   def edit(conn, %{"id" => id}) do
     source = Sources.get_source!(id)

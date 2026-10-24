@@ -30,7 +30,9 @@ window.copyWithCallbacks = async (text, onCopy, onAfterDelay, delay = 4000) => {
 
 window.dispatchFor = (elementOrId, eventName, detail = {}) => {
   const element =
-    typeof elementOrId === 'string' ? document.getElementById(elementOrId) : elementOrId
+    typeof elementOrId === 'string'
+      ? document.getElementById(elementOrId.replace(/^#/, ''))
+      : elementOrId
 
   // This is needed to ensure the DOM has updated before dispatching the event.
   // Doing so ensures that the latest DOM state is what's sent to the server

@@ -332,6 +332,7 @@ defmodule PinchflatWeb.CoreComponents do
   attr :options, :list, doc: "the options to pass to Phoenix.HTML.Form.options_for_select/2"
   attr :multiple, :boolean, default: false, doc: "the multiple flag for select inputs"
   attr :inputclass, :string, default: ""
+  attr :toggle_click, JS, default: nil
 
   attr :rest, :global, include: ~w(accept autocomplete capture cols disabled form list max maxlength min minlength
                 multiple pattern placeholder readonly required rows size step)
@@ -405,30 +406,52 @@ defmodule PinchflatWeb.CoreComponents do
 
   def input(%{type: "toggle"} = assigns) do
     assigns =
-      assign_new(assigns, :checked, fn ->
+      assigns
+      |> assign_new(:checked, fn ->
         Phoenix.HTML.Form.normalize_value("checkbox", assigns[:value])
       end)
+      |> assign(:toggle_button_rest, Map.take(assigns.rest, [:disabled, :"x-bind:disabled"]))
 
     ~H"""
     <div x-data={"{ enabled: #{@checked} }"} class="" phx-update="ignore" id={"#{@id}-wrapper"}>
-      <.label :if={@label} for={@id}>
+      <.label :if={@label} for={"#{@id}-button"}>
         {@label}
-        <span :if={@label_suffix} class="text-xs text-zinc-600 dark:text-bodydark">{@label_suffix}</span>
+        <span :if={@label_suffix} class="text-xs text-zinc-600 dark:text-bodydark">
+          {@label_suffix}
+        </span>
       </.label>
+
       <div class="relative flex flex-col">
         <input type="hidden" id={@id} name={@name} x-bind:value="enabled" {@rest} />
-        <%!-- This triggers a `change` event on the hidden input when the toggle is clicked --%>
-        <div class="inline-block cursor-pointer" @click={"enabled = !enabled; dispatchFor('#{@id}', 'change')"}>
-          <div x-bind:class="enabled && '!bg-primary'" class="block h-8 w-14 rounded-full bg-black"></div>
-          <div
+
+        <button
+          type="button"
+          id={"#{@id}-button"}
+          role="switch"
+          aria-label={@label || @name}
+          x-bind:aria-checked="enabled ? 'true' : 'false'"
+          phx-click={@toggle_click}
+          @click={"enabled = !enabled; dispatchFor('#{@id}', 'change')"}
+          class="relative inline-block h-8 w-14 self-start cursor-pointer rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark"
+          {@toggle_button_rest}
+        >
+          <span
+            x-bind:class="enabled && '!bg-primary'"
+            class="block h-8 w-14 rounded-full bg-black"
+            aria-hidden="true"
+          >
+          </span>
+          <span
             x-bind:class="enabled && '!right-1 !translate-x-full'"
             class={[
               "absolute left-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white transition",
               @inputclass
             ]}
+            aria-hidden="true"
           >
-          </div>
-        </div>
+          </span>
+        </button>
+
         <.help :if={@help}>{if @html_help, do: Phoenix.HTML.raw(@help), else: @help}</.help>
         <.error :for={msg <- @errors}>{msg}</.error>
       </div>
@@ -604,7 +627,10 @@ defmodule PinchflatWeb.CoreComponents do
   attr :id, :string, required: true
   attr :rows, :list, required: true
   attr :row_id, :any, default: nil, doc: "the function for generating the row id"
-  attr :row_click, :any, default: nil, doc: "the function for handling phx-click on each row"
+  attr :row_click, :any,
+    default: nil,
+    doc: "the function for handling phx-click on each row. row_click columns must contain
+    noninteractive phrasing content - supply links/buttons through the separate :action slot"
 
   attr :row_item, :any,
     default: &Function.identity/1,
@@ -640,15 +666,27 @@ defmodule PinchflatWeb.CoreComponents do
         <tr :for={row <- @rows} id={@row_id && @row_id.(row)} class="group hover:bg-zinc-50">
           <td
             :for={{col, i} <- Enum.with_index(@col)}
-            phx-click={@row_click && @row_click.(row)}
             class={["relative p-0", @row_click && "hover:cursor-pointer"]}
           >
-            <div class="block py-4 pr-6">
-              <span class="absolute -inset-y-px right-0 -left-4 group-hover:bg-zinc-50 sm:rounded-l-xl" />
-              <span class={["relative", i == 0 && "font-semibold text-zinc-900"]}>
-                {render_slot(col, @row_item.(row))}
-              </span>
-            </div>
+            <%= if @row_click do %>
+              <button
+                type="button"
+                phx-click={@row_click && @row_click.(row)}
+                class="block w-full py-4 pr-6 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark"
+              >
+                <span class="absolute -inset-y-px right-0 -left-4 group-hover:bg-zinc-50 sm:rounded-l-xl" />
+                <span class={["relative", i == 0 && "font-semibold text-zinc-900"]}>
+                  {render_slot(col, @row_item.(row))}
+                </span>
+              </button>
+            <% else %>
+              <div class="block py-4 pr-6">
+                <span class="absolute -inset-y-px right-0 -left-4 group-hover:bg-zinc-50 sm:rounded-l-xl" />
+                <span class={["relative", i == 0 && "font-semibold text-zinc-900"]}>
+                  {render_slot(col, @row_item.(row))}
+                </span>
+              </div>
+            <% end %>
           </td>
           <td :if={@action != []} class="relative w-14 p-0">
             <div class="relative whitespace-nowrap py-4 text-right text-sm font-medium">

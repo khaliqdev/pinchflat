@@ -60,7 +60,7 @@ defmodule Pinchflat.Pages.RateLimitBannerLive do
 
   defp format_time(datetime) do
     datetime
-    |> DateTime.to_time()
-    |> Calendar.strftime("%H:%M")
+    |> Pinchflat.Utils.DisplayTime.to_local()
+    |> Calendar.strftime("%H:%M %Z")
   end
 end
