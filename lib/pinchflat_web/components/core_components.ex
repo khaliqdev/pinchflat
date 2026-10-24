@@ -715,7 +715,7 @@ defmodule PinchflatWeb.CoreComponents do
     <ul>
       <li :for={{k, v} <- @iterable_attributes} class="mb-2 w-2/3">
         <strong>{k}:</strong>
-        <code class="inline-block text-sm font-mono text-gray p-0.5 mx-0.5">
+        <code class="inline-block text-sm font-mono text-body dark:text-bodydark1 p-0.5 mx-0.5">
           <%= if is_binary(v) && URI.parse(v).scheme && URI.parse(v).scheme =~ "http" do %>
             <TextComponents.inline_link href={v}>{v}</TextComponents.inline_link>
           <% else %>
