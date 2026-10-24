@@ -186,6 +186,45 @@ counts and filters; full suite green.
 Explicitly out of scope: persistent file storage (follow-up: optional rotating
 file under `/config`), docker-logs integration, external log aggregation.
 
+
+## Phase 6 — Production audit retune (2026-10-24, specified)
+
+Full UI/UX + feature audit of the production deployment (all 11 screens, both themes,
+playwright + codex vision audit). 6 bugs found and fixed (83fa6fd, f4f3ce1): dead logs
+search, dead logs auto-follow, CSRF-token leak into log redaction, Retry-Errored
+scope/cap disclosure, Apprise test false-success, light-mode invisible attribute
+values. Full report: ~/html-preview/re-pinchflat-audit/ (screenshots + codex-findings.md).
+
+### 6.1 UI retune (priority order)
+- **Light-theme primitives**: theme-aware input fills, badges, tab accents, helper
+  text across shared components (core/button/tab components) — fixes every light
+  screen at once.
+- **Errors triage at scale**: collapse raw output by error signature + Details
+  expansion; Select-this-page; visible totals ("showing 100 of 192").
+- **Source detail**: replace the Raw-Attributes landing tab with an operational
+  summary (monitoring state, counts, last/next check, profile, destination); raw
+  fields collapsed under Technical details; local-timezone timestamps app-wide.
+- **Keyboard accessibility**: switches/menus/disclosures are divs/spans today —
+  convert to native buttons/inputs with focus rings and aria states.
+- **Home history**: sort by downloaded-at, 20 rows, thumbnails beside titles.
+- **Media detail**: cap player height (~420px), file status/size/destination beside it.
+- **Preview scan**: invalidate result when profile/filters change; state which
+  settings produced the estimate.
+- **Logs polish**: trim rendered metadata to a useful subset (message-first),
+  rename "All sources" -> "All modules".
+- **Confirm dialogs**: consequence-named buttons ("Delete source and 63 files"),
+  focus Cancel on destructive actions.
+
+### 6.2 Feature candidates (from the feature study, daily-value ranked)
+1. Retry-outcome visibility (keep last failure visible while Queued/Downloading).
+2. Storage: always-on free-space stat, largest/oldest browsing, reclaim estimates,
+   low-space download guard.
+3. Search filters (source/state/size) in global results, kept in the URL.
+4. Notification reliability: digest cursor advances only on successful send.
+5. Bulk "Download selected" approval flow for index-only sources.
+6. Global pause/resume downloads + visible next-check time.
+7. Separate Missing-locally / Removed / Unavailable-upstream media states.
+
 ## Working agreements
 
 - Dev loop: `docker compose up phx` → http://localhost:4008 (mix test inside container).
