@@ -119,10 +119,13 @@ defmodule PinchflatWeb.CustomComponents.TextComponents do
       Map.get(assigns, :timezone) ||
         Application.get_env(:pinchflat, :display_timezone, "UTC")
 
+    # This component is called both as a HEEX component (socket-tracked assigns)
+    # and as a plain function with a bare map (History/Job tables) - Map-based
+    # defaults work for both; assign_new/3 would crash on the bare-map path.
     assigns =
       assigns
-      |> assign_new(:format, fn -> "%Y-%m-%d %H:%M:%S" end)
-      |> assign(
+      |> Map.put_new(:format, "%Y-%m-%d %H:%M:%S")
+      |> Map.put(
         :local_datetime,
         Pinchflat.Utils.DisplayTime.to_local(assigns.datetime, timezone)
       )
