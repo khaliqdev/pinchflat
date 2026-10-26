@@ -236,7 +236,10 @@ defmodule Pinchflat.YtDlp.CommandRunnerTest do
   describe "run/5 with a :progress callback" do
     @progress_emitter Path.join([File.cwd!(), "/test/support/scripts/yt-dlp-mocks/progress_emitter.sh"])
     @progress_emitter_429 Path.join([File.cwd!(), "/test/support/scripts/yt-dlp-mocks/progress_emitter_429.sh"])
-    @progress_emitter_fragment Path.join([File.cwd!(), "/test/support/scripts/yt-dlp-mocks/progress_emitter_fragment.sh"])
+    @progress_emitter_fragment Path.join([
+                                 File.cwd!(),
+                                 "/test/support/scripts/yt-dlp-mocks/progress_emitter_fragment.sh"
+                               ])
 
     test "forwards every emitted line to the callback in order and returns the print-to-file contents" do
       wrap_executable(@progress_emitter, fn ->
@@ -306,7 +309,12 @@ defmodule Pinchflat.YtDlp.CommandRunnerTest do
       refute String.contains?(output, "--no-progress")
       assert String.contains?(output, "--progress")
       assert String.contains?(output, "--newline")
-      assert String.contains?(output, "--progress-template download:%(progress.{status,downloaded_bytes,total_bytes,total_bytes_estimate,_speed_str,_eta_str})j")
+
+      assert String.contains?(
+               output,
+               "--progress-template download:%(progress.{status,downloaded_bytes,total_bytes,total_bytes_estimate,_speed_str,_eta_str})j"
+             )
+
       assert String.contains?(output, "--progress-delta 1")
 
       # Arg order mirrors the System.cmd invocation (URL first, like the
@@ -317,10 +325,12 @@ defmodule Pinchflat.YtDlp.CommandRunnerTest do
     test "a raising callback does not abort the port loop" do
       wrap_executable(@progress_emitter, fn ->
         result =
-          Runner.run(@media_url, :download, [:no_progress], "after_move:%()j", progress: fn line ->
-            send(self(), {:progress_line, line})
-            raise "callback exploded"
-          end)
+          Runner.run(@media_url, :download, [:no_progress], "after_move:%()j",
+            progress: fn line ->
+              send(self(), {:progress_line, line})
+              raise "callback exploded"
+            end
+          )
 
         assert {:ok, output} = result
         assert String.contains?(output, "Finished Video")
@@ -344,7 +354,10 @@ defmodule Pinchflat.YtDlp.CommandRunnerTest do
   # Runs the command with a callback that mirrors every line back to the
   # test process as a message, returning {run_result, lines_in_order}
   defp run_collecting_lines(url, action, command_opts, output_template) do
-    result = Runner.run(url, action, command_opts, output_template, progress: fn line -> send(self(), {:progress_line, line}) end)
+    result =
+      Runner.run(url, action, command_opts, output_template,
+        progress: fn line -> send(self(), {:progress_line, line}) end
+      )
 
     lines = Enum.map(receive_all(), fn {:progress_line, line} -> line end)
 

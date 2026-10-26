@@ -435,11 +435,7 @@ defmodule PinchflatWeb.CoreComponents do
           class="relative inline-block h-8 w-14 self-start cursor-pointer rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark"
           {@toggle_button_rest}
         >
-          <span
-            x-bind:class="enabled && '!bg-primary'"
-            class="block h-8 w-14 rounded-full bg-black"
-            aria-hidden="true"
-          >
+          <span x-bind:class="enabled && '!bg-primary'" class="block h-8 w-14 rounded-full bg-black" aria-hidden="true">
           </span>
           <span
             x-bind:class="enabled && '!right-1 !translate-x-full'"
@@ -627,6 +623,7 @@ defmodule PinchflatWeb.CoreComponents do
   attr :id, :string, required: true
   attr :rows, :list, required: true
   attr :row_id, :any, default: nil, doc: "the function for generating the row id"
+
   attr :row_click, :any,
     default: nil,
     doc: "the function for handling phx-click on each row. row_click columns must contain
@@ -664,10 +661,7 @@ defmodule PinchflatWeb.CoreComponents do
         class="relative divide-y divide-zinc-100 border-t border-zinc-200 text-sm leading-6 text-zinc-700"
       >
         <tr :for={row <- @rows} id={@row_id && @row_id.(row)} class="group hover:bg-zinc-50">
-          <td
-            :for={{col, i} <- Enum.with_index(@col)}
-            class={["relative p-0", @row_click && "hover:cursor-pointer"]}
-          >
+          <td :for={{col, i} <- Enum.with_index(@col)} class={["relative p-0", @row_click && "hover:cursor-pointer"]}>
             <%= if @row_click do %>
               <button
                 type="button"

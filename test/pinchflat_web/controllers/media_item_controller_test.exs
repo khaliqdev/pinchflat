@@ -200,6 +200,7 @@ defmodule PinchflatWeb.MediaItemControllerTest do
 
     test "serves the whole file for suffix ranges longer than the file", %{conn: conn, media_item: media_item} do
       filesize = File.stat!(media_item.media_filepath).size
+
       conn =
         conn
         |> put_req_header("range", "bytes=-999999999")

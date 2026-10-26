@@ -147,8 +147,7 @@ defmodule PinchflatWeb.Sources.SourceController do
       pending_tasks: pending_tasks,
       last_indexed_at: source.last_indexed_at,
       next_index_at: next_index_at(source),
-      output_directory:
-        source.series_directory || Application.fetch_env!(:pinchflat, :media_directory),
+      output_directory: source.series_directory || Application.fetch_env!(:pinchflat, :media_directory),
       output_directory_label:
         if(source.series_directory,
           do: "Last resolved source directory",

@@ -437,6 +437,7 @@ defmodule PinchflatWeb.SourceControllerTest do
       })
     }
   end
+
   describe "check_now/2" do
     test "kicks off a forced indexing job and redirects back to the source", %{conn: conn} do
       source = source_fixture()
@@ -446,7 +447,7 @@ defmodule PinchflatWeb.SourceControllerTest do
       assert redirected_to(conn) == "/sources/#{source.id}"
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Indexing started"
 
-      assert_enqueued worker: MediaCollectionIndexingWorker, args: %{"force" => true, "id" => source.id}
+      assert_enqueued(worker: MediaCollectionIndexingWorker, args: %{"force" => true, "id" => source.id})
     end
 
     test "404s when the source does not exist", %{conn: conn} do
@@ -455,5 +456,4 @@ defmodule PinchflatWeb.SourceControllerTest do
       end
     end
   end
-
 end

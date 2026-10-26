@@ -84,11 +84,13 @@ defmodule Pinchflat.Pages.DownloadsProgressLive do
               >
               </div>
 
-              <div :if={not is_number(percent)} class="h-full w-full animate-pulse rounded-full bg-sky-500/40">
-              </div>
+              <div :if={not is_number(percent)} class="h-full w-full animate-pulse rounded-full bg-sky-500/40"></div>
             </div>
 
-            <div :if={progress && (progress[:speed] || progress[:eta])} class="mt-1 flex items-center gap-3 text-xs text-bodydark2">
+            <div
+              :if={progress && (progress[:speed] || progress[:eta])}
+              class="mt-1 flex items-center gap-3 text-xs text-bodydark2"
+            >
               <span :if={progress && progress[:speed]}>{progress[:speed]}</span>
               <span :if={progress && progress[:eta]}>ETA {progress[:eta]}</span>
             </div>
@@ -103,7 +105,10 @@ defmodule Pinchflat.Pages.DownloadsProgressLive do
   # come and go via job:state events (and the periodic refresh). The payload
   # is broadcast data (external input); tolerate missing keys instead of
   # crashing the LiveView on a malformed event.
-  def handle_info(%{topic: "download_progress", event: "progress", payload: %{media_item_id: media_item_id} = payload}, socket) do
+  def handle_info(
+        %{topic: "download_progress", event: "progress", payload: %{media_item_id: media_item_id} = payload},
+        socket
+      ) do
     progress = %{percent: payload[:percent], speed: payload[:speed], eta: payload[:eta]}
 
     if Enum.any?(socket.assigns.items, &(&1.id == media_item_id)) do

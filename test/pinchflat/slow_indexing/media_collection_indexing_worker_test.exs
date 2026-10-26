@@ -68,7 +68,7 @@ defmodule Pinchflat.SlowIndexing.MediaCollectionIndexingWorkerTest do
 
       assert {:error, _} = perform_job(MediaCollectionIndexingWorker, %{id: source.id})
 
-      assert_enqueued worker: MediaCollectionIndexingWorker, args: %{"id" => source.id}
+      assert_enqueued(worker: MediaCollectionIndexingWorker, args: %{"id" => source.id})
     end
 
     test "indexes the source if it should be indexed" do

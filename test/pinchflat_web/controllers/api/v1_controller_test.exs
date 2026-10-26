@@ -105,7 +105,6 @@ defmodule PinchflatWeb.Api.V1ControllerTest do
       assert conn.status == 404
     end
 
-
     test "404s for a non-numeric id", %{conn: conn} do
       conn = get(conn, ~p"/api/v1/media_items/abc?route_token=test-token-123")
 

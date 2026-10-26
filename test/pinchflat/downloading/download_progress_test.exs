@@ -129,7 +129,11 @@ defmodule Pinchflat.Downloading.DownloadProgressTest do
     end
 
     test "broadcasts a progress event for a new item" do
-      :ok = DownloadProgress.record_line(1, ~s({"downloaded_bytes": 50, "total_bytes": 100, "_speed_str": "1.00MiB/s", "_eta_str": "00:10"}))
+      :ok =
+        DownloadProgress.record_line(
+          1,
+          ~s({"downloaded_bytes": 50, "total_bytes": 100, "_speed_str": "1.00MiB/s", "_eta_str": "00:10"})
+        )
 
       assert_receive %Phoenix.Socket.Broadcast{
         topic: "download_progress",
@@ -219,6 +223,7 @@ defmodule Pinchflat.Downloading.DownloadProgressTest do
       assert %{percent: 50.0} = DownloadProgress.get(3)
     end
   end
+
   describe "missing ETS table resilience" do
     test "degrades to empty when the ETS table does not exist" do
       # Delete the table without stopping its owner: race-free way to
@@ -246,5 +251,4 @@ defmodule Pinchflat.Downloading.DownloadProgressTest do
       end
     end
   end
-
 end

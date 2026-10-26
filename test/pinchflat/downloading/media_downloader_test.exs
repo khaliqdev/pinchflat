@@ -251,6 +251,7 @@ defmodule Pinchflat.Downloading.MediaDownloaderTest do
       end)
 
       source = source_fixture()
+
       media_item =
         media_item_fixture(%{source_id: source.id, uploaded_at: DateTime.add(DateTime.utc_now(), -3600)})
 
@@ -270,6 +271,7 @@ defmodule Pinchflat.Downloading.MediaDownloaderTest do
       end)
 
       source = source_fixture()
+
       media_item =
         media_item_fixture(%{source_id: source.id, uploaded_at: DateTime.add(DateTime.utc_now(), -72 * 3600)})
 
@@ -474,7 +476,9 @@ defmodule Pinchflat.Downloading.MediaDownloaderTest do
           assert [{:output_filepath, _filepath}, {:use_cookies, false}, {:progress, callback}] = addl
           assert is_function(callback, 1)
 
-          callback.(~s({"downloaded_bytes": 524288, "total_bytes": 1048576, "_speed_str": "2.00MiB/s", "_eta_str": "00:30"}))
+          callback.(
+            ~s({"downloaded_bytes": 524288, "total_bytes": 1048576, "_speed_str": "2.00MiB/s", "_eta_str": "00:30"})
+          )
 
           # Mid-download, the row holds the latest percent
           assert %{percent: 50.0, speed: "2.00MiB/s", eta: "00:30"} = DownloadProgress.get(media_item.id)
@@ -495,7 +499,8 @@ defmodule Pinchflat.Downloading.MediaDownloaderTest do
 
     test "clears the progress row when the download errors", %{media_item: media_item} do
       expect(YtDlpRunnerMock, :run, 2, fn
-        _url, :get_downloadable_status, _opts, _ot, _addl -> {:ok, "{}"}
+        _url, :get_downloadable_status, _opts, _ot, _addl ->
+          {:ok, "{}"}
 
         _url, :download, _opts, _ot, addl ->
           Keyword.get(addl, :progress).(~s({"downloaded_bytes": 10, "total_bytes": 100}))
@@ -510,7 +515,8 @@ defmodule Pinchflat.Downloading.MediaDownloaderTest do
       message = "Unable to communicate with SponsorBlock"
 
       expect(YtDlpRunnerMock, :run, 3, fn
-        _url, :get_downloadable_status, _opts, _ot, _addl -> {:ok, "{}"}
+        _url, :get_downloadable_status, _opts, _ot, _addl ->
+          {:ok, "{}"}
 
         _url, :download, _opts, _ot, addl ->
           Keyword.get(addl, :progress).(~s({"downloaded_bytes": 10, "total_bytes": 100}))
@@ -519,7 +525,8 @@ defmodule Pinchflat.Downloading.MediaDownloaderTest do
 
           {:error, message, 1}
 
-        _url, :download_thumbnail, _opts, _ot, _addl -> {:ok, ""}
+        _url, :download_thumbnail, _opts, _ot, _addl ->
+          {:ok, ""}
       end)
 
       assert {:recovered, _media_item, ^message} = MediaDownloader.download_for_media_item(media_item)

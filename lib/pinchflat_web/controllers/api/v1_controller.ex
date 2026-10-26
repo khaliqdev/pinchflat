@@ -126,5 +126,4 @@ defmodule PinchflatWeb.Api.V1Controller do
       downloaded_count: Map.get(counts, source.id, 0)
     }
   end
-
 end

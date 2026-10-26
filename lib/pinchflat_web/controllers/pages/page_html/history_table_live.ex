@@ -27,7 +27,7 @@ defmodule Pinchflat.Pages.HistoryTableLive do
         </span>
       </span>
       <div class="max-w-full overflow-x-auto">
-        <.table rows={@records} >
+        <.table rows={@records}>
           <:col :let={media_item} label="Title" class="max-w-xs">
             <section class="flex items-center space-x-2">
               <img

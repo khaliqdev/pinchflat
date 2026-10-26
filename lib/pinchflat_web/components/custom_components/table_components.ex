@@ -121,8 +121,7 @@ defmodule PinchflatWeb.CustomComponents.TableComponents do
 
         <li>
           <span class="mx-2">
-            Page <.localized_number number={@page_number} />
-            of <.localized_number number={@total_pages} />
+            Page <.localized_number number={@page_number} /> of <.localized_number number={@total_pages} />
           </span>
         </li>
 

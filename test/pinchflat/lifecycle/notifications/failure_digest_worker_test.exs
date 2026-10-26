@@ -11,7 +11,9 @@ defmodule Pinchflat.Lifecycle.Notifications.FailureDigestWorkerTest do
     Settings.set(apprise_server: "json://example.com")
     # A distant cursor; each test overrides or relies on the window including
     # its backdated failures. (Settings has no delete - nil is not storable.)
-    Settings.set(failure_digest_cursor: DateTime.utc_now() |> DateTime.add(-7200, :second) |> DateTime.truncate(:second))
+    Settings.set(
+      failure_digest_cursor: DateTime.utc_now() |> DateTime.add(-7200, :second) |> DateTime.truncate(:second)
+    )
 
     :ok
   end

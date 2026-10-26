@@ -235,7 +235,6 @@ defmodule Pinchflat.Downloading.MediaDownloader do
   end
 
   defp maybe_retry_with_cookies(url, item_with_preloads, output_filepath, override_opts, err) do
-
     {:error, message, _} = err
     source = item_with_preloads.source
     message_contains_cookie_error = Sources.cookie_error?(message)

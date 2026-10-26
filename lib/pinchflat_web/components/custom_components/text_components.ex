@@ -131,11 +131,7 @@ defmodule PinchflatWeb.CustomComponents.TextComponents do
       )
 
     ~H"""
-    <time
-      :if={@local_datetime}
-      datetime={DateTime.to_iso8601(@local_datetime)}
-      title={@local_datetime.time_zone}
-    >
+    <time :if={@local_datetime} datetime={DateTime.to_iso8601(@local_datetime)} title={@local_datetime.time_zone}>
       {Calendar.strftime(@local_datetime, @format)}
     </time>
     """

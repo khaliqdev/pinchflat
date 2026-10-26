@@ -15,6 +15,7 @@ defmodule PinchflatWeb.Components.LayoutsTest do
       assert html =~ ~s(x-on:click="selected = !selected")
       assert html =~ ~s(x-bind:aria-expanded="selected ? 'true' : 'false'")
       assert html =~ "w-full text-left"
+
       assert html =~
                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark"
     end
@@ -35,13 +36,16 @@ defmodule PinchflatWeb.Components.LayoutsTest do
   end
 
   defp render_submenu(current_path) do
-    render_component(fn assigns ->
-      ~H"""
-      <Layouts.sidebar_submenu icon="hero-cog-6-tooth" text="Config" current_path={@current_path}>
-        <:submenu text="Settings" href="/settings" />
-        <:submenu text="Logs" href="/logs" />
-      </Layouts.sidebar_submenu>
-      """
-    end, %{current_path: current_path})
+    render_component(
+      fn assigns ->
+        ~H"""
+        <Layouts.sidebar_submenu icon="hero-cog-6-tooth" text="Config" current_path={@current_path}>
+          <:submenu text="Settings" href="/settings" />
+          <:submenu text="Logs" href="/logs" />
+        </Layouts.sidebar_submenu>
+        """
+      end,
+      %{current_path: current_path}
+    )
   end
 end

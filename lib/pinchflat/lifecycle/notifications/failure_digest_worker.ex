@@ -106,5 +106,4 @@ defmodule Pinchflat.Lifecycle.Notifications.FailureDigestWorker do
   defp apprise_runner do
     Application.get_env(:pinchflat, :apprise_runner, AppriseRunner)
   end
-
 end

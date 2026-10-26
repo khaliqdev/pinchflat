@@ -81,6 +81,7 @@ defmodule PinchflatWeb.Sources.MediaItemTableLiveTest do
   defp create_session(source, media_state \\ "pending") do
     %{"source_id" => source.id, "media_state" => media_state}
   end
+
   describe "media thumbnails" do
     test "renders a YouTube CDN thumb for pending items", %{conn: conn} do
       source = source_fixture()
@@ -93,6 +94,7 @@ defmodule PinchflatWeb.Sources.MediaItemTableLiveTest do
 
     test "renders a local thumb route for downloaded items with a stored thumbnail", %{conn: conn} do
       source = source_fixture()
+
       media_item =
         media_item_fixture(%{
           source_id: source.id,
@@ -108,6 +110,7 @@ defmodule PinchflatWeb.Sources.MediaItemTableLiveTest do
 
     test "prefers the YouTube thumb when a downloaded item has no stored thumbnail", %{conn: conn} do
       source = source_fixture()
+
       media_item_fixture(%{
         source_id: source.id,
         media_filepath: "/video/y.mp4",
@@ -120,5 +123,4 @@ defmodule PinchflatWeb.Sources.MediaItemTableLiveTest do
       assert element(view, "img[src*='i.ytimg.com/vi/def456']") |> has_element?
     end
   end
-
 end

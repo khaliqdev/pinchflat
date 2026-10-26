@@ -139,10 +139,10 @@ defmodule Pinchflat.Podcasts.RssFeedBuilder do
   defp media_route(action, params) do
     Routes.media_item_path(PinchflatWeb.Endpoint, action, params)
   end
+
   # A literal "]]>" inside a description would terminate the CDATA section and
   # make the whole feed unparseable - split it across two sections instead
   defp cdata_safe(text) do
     String.replace(to_string(text), "]]>", "]]]]><![CDATA[>")
   end
-
 end

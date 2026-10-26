@@ -67,16 +67,19 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
         >
           Un-Ignore
         </button>
-        <button
-          type="button"
-          phx-click="clear_selection"
-          class="ml-auto text-sm text-bodydark2 hover:text-bodydark1"
-        >
+        <button type="button" phx-click="clear_selection" class="ml-auto text-sm text-bodydark2 hover:text-bodydark1">
           Clear selection
         </button>
       </div>
-      <.table rows={@records} >
-        <:col :let={media_item} label={Phoenix.HTML.raw(~s(<input type="checkbox" class="accent-primary" phx-click="toggle_select_all" phx-value-value="true" />))}>
+      <.table rows={@records}>
+        <:col
+          :let={media_item}
+          label={
+            Phoenix.HTML.raw(
+              ~s(<input type="checkbox" class="accent-primary" phx-click="toggle_select_all" phx-value-value="true" />)
+            )
+          }
+        >
           <input
             type="checkbox"
             class="accent-primary"
@@ -190,7 +193,11 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
 
   def handle_event("select_row", %{"id" => id}, %{assigns: assigns} = socket) do
     id = String.to_integer(id)
-    selected_ids = if MapSet.member?(assigns.selected_ids, id), do: MapSet.delete(assigns.selected_ids, id), else: MapSet.put(assigns.selected_ids, id)
+
+    selected_ids =
+      if MapSet.member?(assigns.selected_ids, id),
+        do: MapSet.delete(assigns.selected_ids, id),
+        else: MapSet.put(assigns.selected_ids, id)
 
     {:noreply, assign(socket, selected_ids: selected_ids)}
   end
@@ -250,7 +257,8 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
   # keeps a 50-item download burst from fanning into ~900 queries
   @job_state_debounce_ms 400
 
-  def handle_info(%{topic: "job:state", event: "change"}, %{assigns: %{debounce_timer: timer}} = socket) when is_reference(timer) do
+  def handle_info(%{topic: "job:state", event: "change"}, %{assigns: %{debounce_timer: timer}} = socket)
+      when is_reference(timer) do
     {:noreply, socket}
   end
 
@@ -366,7 +374,18 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
 
   # Selecting only what we need GREATLY speeds up queries on large tables
   defp select_fields do
-    [:id, :title, :uuid, :media_id, :thumbnail_filepath, :uploaded_at, :media_filepath, :members_only, :prevent_download, :last_error]
+    [
+      :id,
+      :title,
+      :uuid,
+      :media_id,
+      :thumbnail_filepath,
+      :uploaded_at,
+      :media_filepath,
+      :members_only,
+      :prevent_download,
+      :last_error
+    ]
   end
 
   # Downloaded items use the locally-stored thumbnail (served by UUID); pending

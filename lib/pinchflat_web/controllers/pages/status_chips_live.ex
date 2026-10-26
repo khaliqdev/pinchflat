@@ -50,7 +50,8 @@ defmodule Pinchflat.Pages.StatusChipsLive do
     """
   end
 
-  def handle_info(%{topic: "job:state", event: "change"}, %{assigns: %{debounce_timer: timer}} = socket) when is_reference(timer) do
+  def handle_info(%{topic: "job:state", event: "change"}, %{assigns: %{debounce_timer: timer}} = socket)
+      when is_reference(timer) do
     {:noreply, socket}
   end
 

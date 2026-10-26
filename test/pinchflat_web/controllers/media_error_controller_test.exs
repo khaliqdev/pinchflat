@@ -93,12 +93,13 @@ defmodule PinchflatWeb.MediaErrorControllerTest do
                items |> Enum.map(& &1.id) |> Enum.sort()
     end
   end
+
   describe "POST /errors/retry" do
     test "retries pending errored items and skips ignored ones", %{conn: conn} do
       retryable = media_item_fixture(%{title: "Retryable", last_error: "boom", media_filepath: nil})
+
       skipped =
         media_item_fixture(%{title: "Skipped", last_error: "boom", prevent_download: true, media_filepath: nil})
-
 
       conn = post(conn, ~p"/errors/retry")
 
@@ -108,7 +109,7 @@ defmodule PinchflatWeb.MediaErrorControllerTest do
 
       assert Repo.reload!(retryable).last_error == nil
       assert Repo.reload!(skipped).last_error == "boom"
-      assert_enqueued worker: MediaDownloadWorker, args: %{"id" => retryable.id}
+      assert_enqueued(worker: MediaDownloadWorker, args: %{"id" => retryable.id})
     end
   end
 
@@ -126,12 +127,13 @@ defmodule PinchflatWeb.MediaErrorControllerTest do
 
       assert Repo.reload!(selected).last_error == nil
       assert Repo.reload!(unselected).last_error == "boom"
-      assert_enqueued worker: MediaDownloadWorker, args: %{"id" => selected.id}
-      refute_enqueued worker: MediaDownloadWorker, args: %{"id" => unselected.id}
+      assert_enqueued(worker: MediaDownloadWorker, args: %{"id" => selected.id})
+      refute_enqueued(worker: MediaDownloadWorker, args: %{"id" => unselected.id})
     end
 
     test "skips selected items that are ignored or already downloaded", %{conn: conn} do
       retryable = media_item_fixture(%{title: "Retryable", last_error: "boom", media_filepath: nil})
+
       ignored =
         media_item_fixture(%{title: "Ignored", last_error: "boom", prevent_download: true, media_filepath: nil})
 
@@ -139,8 +141,7 @@ defmodule PinchflatWeb.MediaErrorControllerTest do
 
       conn =
         post(conn, ~p"/errors/retry-selected", %{
-          "selected_ids" =>
-            Enum.map([retryable, ignored, downloaded], fn item -> Integer.to_string(item.id) end)
+          "selected_ids" => Enum.map([retryable, ignored, downloaded], fn item -> Integer.to_string(item.id) end)
         })
 
       assert redirected_to(conn) == "/errors"
@@ -150,7 +151,7 @@ defmodule PinchflatWeb.MediaErrorControllerTest do
       assert Repo.reload!(retryable).last_error == nil
       assert Repo.reload!(ignored).last_error == "boom"
       assert Repo.reload!(downloaded).last_error == "boom"
-      assert_enqueued worker: MediaDownloadWorker, args: %{"id" => retryable.id}
+      assert_enqueued(worker: MediaDownloadWorker, args: %{"id" => retryable.id})
     end
 
     test "only considers items on the current errored batch", %{conn: conn} do
@@ -166,8 +167,8 @@ defmodule PinchflatWeb.MediaErrorControllerTest do
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Retried 1 item(s)"
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "skipped 1"
 
-      assert_enqueued worker: MediaDownloadWorker, args: %{"id" => errored.id}
-      refute_enqueued worker: MediaDownloadWorker, args: %{"id" => fresh.id}
+      assert_enqueued(worker: MediaDownloadWorker, args: %{"id" => errored.id})
+      refute_enqueued(worker: MediaDownloadWorker, args: %{"id" => fresh.id})
     end
 
     test "scopes selection to the source filter", %{conn: conn} do
@@ -185,7 +186,7 @@ defmodule PinchflatWeb.MediaErrorControllerTest do
       assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "skipped 1"
 
       assert Repo.reload!(item).last_error == "boom"
-      refute_enqueued worker: MediaDownloadWorker
+      refute_enqueued(worker: MediaDownloadWorker)
     end
 
     test "does nothing when no valid ids are given", %{conn: conn} do
@@ -193,8 +194,7 @@ defmodule PinchflatWeb.MediaErrorControllerTest do
 
       assert redirected_to(conn) == "/errors"
       refute Phoenix.Flash.get(conn.assigns.flash, :info)
-      refute_enqueued worker: MediaDownloadWorker
+      refute_enqueued(worker: MediaDownloadWorker)
     end
   end
-
 end

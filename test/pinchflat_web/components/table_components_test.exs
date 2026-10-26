@@ -37,13 +37,16 @@ defmodule PinchflatWeb.Components.TableComponentsTest do
 
     test "unsortable header does not acquire a button or aria-sort" do
       html =
-        render_component(fn assigns ->
-          ~H"""
-          <TableComponents.table rows={@rows}>
-            <:col :let={row} label="Name">{row.name}</:col>
-          </TableComponents.table>
-          """
-        end, %{rows: [%{name: "row-1"}]})
+        render_component(
+          fn assigns ->
+            ~H"""
+            <TableComponents.table rows={@rows}>
+              <:col :let={row} label="Name">{row.name}</:col>
+            </TableComponents.table>
+            """
+          end,
+          %{rows: [%{name: "row-1"}]}
+        )
 
       assert html =~ "Name"
       refute html =~ "<button"
@@ -85,14 +88,17 @@ defmodule PinchflatWeb.Components.TableComponentsTest do
   end
 
   defp render_table(assigns) do
-    render_component(fn assigns ->
-      ~H"""
-      <TableComponents.table rows={@rows} sort_key={@sort_key} sort_direction={@sort_direction}>
-        <:col :let={row} label="Name" sort_key="custom_name">{row.name}</:col>
-        <:col :let={row} label="Title" sort_key="title">{row.name}</:col>
-      </TableComponents.table>
-      """
-    end, Map.put(assigns, :rows, [%{name: "row-1"}]))
+    render_component(
+      fn assigns ->
+        ~H"""
+        <TableComponents.table rows={@rows} sort_key={@sort_key} sort_direction={@sort_direction}>
+          <:col :let={row} label="Name" sort_key="custom_name">{row.name}</:col>
+          <:col :let={row} label="Title" sort_key="title">{row.name}</:col>
+        </TableComponents.table>
+        """
+      end,
+      Map.put(assigns, :rows, [%{name: "row-1"}])
+    )
   end
 
   defp render_pagination(page_number, total_pages) do

@@ -26,6 +26,7 @@ defmodule Pinchflat.Podcasts.RssFeedBuilderTest do
       File.mkdir_p!(Path.dirname(filepath))
       File.write!(filepath, "x")
       source = source_fixture()
+
       media_item_fixture(%{
         source_id: source.id,
         description: "hello ]]> world",

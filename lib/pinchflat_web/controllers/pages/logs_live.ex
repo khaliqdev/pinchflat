@@ -67,7 +67,10 @@ defmodule Pinchflat.Pages.LogsLive do
               type="button"
               phx-click="toggle-level"
               phx-value-level={level}
-              class={["rounded-md border px-3 py-1.5 text-sm font-medium capitalize", chip_state(level, level in @selected_levels)]}
+              class={[
+                "rounded-md border px-3 py-1.5 text-sm font-medium capitalize",
+                chip_state(level, level in @selected_levels)
+              ]}
             >
               {level} <span class="ml-1 font-normal opacity-75 tabular-nums">{@level_counts[level]}</span>
             </button>
@@ -145,7 +148,13 @@ defmodule Pinchflat.Pages.LogsLive do
             No matching log lines.
           </div>
 
-          <div :for={entry <- @lines} id={"log-entry-#{entry.seq}"} class={["m-0 shrink-0 whitespace-pre-wrap break-words p-0 text-[13px] leading-5", line_class(entry.level)]}><%= entry.line %></div>
+          <div
+            :for={entry <- @lines}
+            id={"log-entry-#{entry.seq}"}
+            class={["m-0 shrink-0 whitespace-pre-wrap break-words p-0 text-[13px] leading-5", line_class(entry.level)]}
+          >
+            {entry.line}
+          </div>
         </div>
 
         <div class="mt-3 flex flex-wrap items-center justify-center gap-3">

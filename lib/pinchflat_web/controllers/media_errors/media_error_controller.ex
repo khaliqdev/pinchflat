@@ -25,10 +25,17 @@ defmodule PinchflatWeb.MediaErrors.MediaErrorController do
     end)
 
     scope = if source_id, do: "in this source", else: "across all sources"
-    cap_note = if length(errored_items) == 100, do: " Batch covered the most recent 100 failures - run it again for the next batch.", else: ""
+
+    cap_note =
+      if length(errored_items) == 100,
+        do: " Batch covered the most recent 100 failures - run it again for the next batch.",
+        else: ""
 
     conn
-    |> put_flash(:info, "Retried #{length(retryable)} item(s) #{scope} (skipped #{length(skipped)} ignored or already downloaded).#{cap_note}")
+    |> put_flash(
+      :info,
+      "Retried #{length(retryable)} item(s) #{scope} (skipped #{length(skipped)} ignored or already downloaded).#{cap_note}"
+    )
     |> redirect(to: ~p"/errors")
   end
 

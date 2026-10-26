@@ -19,6 +19,7 @@ defmodule PinchflatWeb.Components.ButtonComponentsTest do
       html = render_dropdown()
 
       assert html =~ ~s(x-bind:aria-expanded="dropdownOpen ? 'true' : 'false'")
+
       assert html =~
                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark"
     end

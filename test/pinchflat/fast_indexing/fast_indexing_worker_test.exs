@@ -34,8 +34,9 @@ defmodule Pinchflat.FastIndexing.FastIndexingWorkerTest do
 
       assert {:error, _} = perform_job(FastIndexingWorker, %{id: source.id})
 
-      assert_enqueued worker: FastIndexingWorker, args: %{"id" => source.id}
+      assert_enqueued(worker: FastIndexingWorker, args: %{"id" => source.id})
     end
+
     test "calls out to Youtube RSS if enabled" do
       expect(HTTPClientMock, :get, fn _url -> {:ok, ""} end)
       source = source_fixture(fast_index: true)

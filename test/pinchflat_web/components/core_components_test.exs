@@ -124,12 +124,15 @@ defmodule PinchflatWeb.Components.CoreComponentsTest do
   end
 
   defp render_old_table(assigns) do
-    render_component(fn assigns ->
-      ~H"""
-      <PinchflatWeb.CoreComponents.old_table id="rows" rows={@rows} row_click={@row_click}>
-        <:col :let={row} label="Name">{row.name}</:col>
-      </PinchflatWeb.CoreComponents.old_table>
-      """
-    end, Map.put(assigns, :rows, [%{name: "row-1"}]))
+    render_component(
+      fn assigns ->
+        ~H"""
+        <PinchflatWeb.CoreComponents.old_table id="rows" rows={@rows} row_click={@row_click}>
+          <:col :let={row} label="Name">{row.name}</:col>
+        </PinchflatWeb.CoreComponents.old_table>
+        """
+      end,
+      Map.put(assigns, :rows, [%{name: "row-1"}])
+    )
   end
 end

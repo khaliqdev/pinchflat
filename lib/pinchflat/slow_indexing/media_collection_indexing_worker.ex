@@ -138,6 +138,7 @@ defmodule Pinchflat.SlowIndexing.MediaCollectionIndexingWorker do
       |> Tasks.create_job_with_task(source)
     end
   end
+
   # The helpers deliver backend failures via the process dictionary (they keep
   # their list return shape) - pick it up and turn it into an Oban error
   defp surface_backend_failure(fallback) do
@@ -146,5 +147,4 @@ defmodule Pinchflat.SlowIndexing.MediaCollectionIndexingWorker do
       err -> {:error, "indexing backend failed: #{inspect(err)}"}
     end
   end
-
 end

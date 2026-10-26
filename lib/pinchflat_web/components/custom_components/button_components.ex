@@ -24,14 +24,12 @@ defmodule PinchflatWeb.CustomComponents.ButtonComponents do
   slot :inner_block, required: true
 
   @button_color_classes %{
-    "bg-primary" =>
-      "border-transparent bg-primary text-white enabled:hover:bg-opacity-90",
+    "bg-primary" => "border-transparent bg-primary text-white enabled:hover:bg-opacity-90",
     "secondary" =>
       "border-zinc-300 bg-white text-zinc-900 enabled:hover:bg-gray dark:border-form-strokedark dark:bg-form-input dark:text-white dark:enabled:hover:bg-meta-4",
     "ghost" =>
       "border-transparent bg-transparent text-zinc-700 enabled:hover:bg-gray dark:text-bodydark1 dark:enabled:hover:bg-meta-4",
-    "bg-danger" =>
-      "border-transparent bg-danger text-white enabled:hover:bg-opacity-90"
+    "bg-danger" => "border-transparent bg-danger text-white enabled:hover:bg-opacity-90"
   }
 
   def button(assigns) do
