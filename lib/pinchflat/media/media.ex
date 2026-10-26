@@ -192,6 +192,66 @@ defmodule Pinchflat.Media do
       distinct: true
     )
     |> Repo.all()
+    |> Repo.preload(:source)
+  end
+
+  @doc """
+  Counts pending media items across all sources (dashboard KPI).
+  """
+  def pending_media_count do
+    MediaQuery.new()
+    |> MediaQuery.require_assoc(:media_profile)
+    |> where(^MediaQuery.pending())
+    |> Repo.aggregate(:count, :id)
+  end
+
+  @doc """
+  The newest downloaded items for the dashboard poster grid, completion order.
+
+  Returns [%MediaItem{}, ...] with :source preloaded.
+  """
+  def recent_downloads(limit) do
+    MediaQuery.new()
+    |> where(^MediaQuery.downloaded())
+    |> order_by([mi], desc: mi.media_downloaded_at, desc: mi.id)
+    |> limit(^limit)
+    |> preload(:source)
+    |> Repo.all()
+  end
+
+  @doc """
+  Per-source health for the dashboard: pending and failed counts alongside
+  each source. Failed overlaps pending by design (same as the errors console).
+  """
+  def sources_health do
+    pending = grouped_counts_by_source(MediaQuery.pending())
+    failed = grouped_counts_by_source(MediaQuery.errored())
+    downloading = Enum.frequencies_by(downloading_media_items(), & &1.source_id)
+
+    sources =
+      from(s in Source, order_by: [asc: s.custom_name])
+      |> Repo.all()
+
+    Enum.map(sources, fn source ->
+      %{
+        source: source,
+        pending_count: Map.get(pending, source.id, 0),
+        failed_count: Map.get(failed, source.id, 0),
+        downloading_count: Map.get(downloading, source.id, 0)
+      }
+    end)
+  end
+
+  defp grouped_counts_by_source(dynamic) do
+    # pending() needs the source->media_profile join chain for cutoff/profile
+    # filtering; requiring it is harmless for the mi-only errored() dynamic
+    MediaQuery.new()
+    |> MediaQuery.require_assoc(:media_profile)
+    |> where(^dynamic)
+    |> group_by([mi], mi.source_id)
+    |> select([mi], {mi.source_id, count(mi.id)})
+    |> Repo.all()
+    |> Map.new()
   end
 
   @doc """

@@ -76,6 +76,28 @@ defmodule Pinchflat.Logs.LogBuffer do
   end
 
   @doc """
+  Entry point for the Logger backend: writes one backend event using the
+  timestamp tuple the event carried (rather than now).
+  """
+  def record_from_event(level, message, timestamp, metadata) do
+    do_record(level, message, metadata, timestamp)
+  end
+
+  @doc """
+  Ensures the ETS table and its bookkeeping rows exist. Idempotent; called
+  from both the GenServer child and the Logger backend init.
+  """
+  def ensure_table do
+    if :ets.whereis(@table) == :undefined do
+      :ets.new(@table, [:ordered_set, :public, :named_table, read_concurrency: true])
+    end
+
+    ensure_bookkeeping_rows()
+
+    :ok
+  end
+
+  @doc """
   Returns every buffered line, oldest first, as entry maps with a
   console-formatted `line` field. Bounded by the buffer cap.
 
@@ -262,33 +284,10 @@ defmodule Pinchflat.Logs.LogBuffer do
     {:ok, %{}}
   end
 
-  # gen_event invokes this in Logger's manager process (Logger.Backends.Watcher
-  # only supervises the registration), so the work here is serialized with the
-  # console backend's own formatting - and a raising callback would get this
-  # handler REMOVED from the manager, which is why do_record/4 swallows
-  # everything. The event is the classic backend shape
-  # {level, gl, {Logger, msg, ts, md}} - Logger.Backends.Handler translates
-  # Erlang :logger events into it, mapping :warning to the legacy :warn atom
-  # (normalized back to :warning in write_line/4).
-  # NOTE: handle_event/2 and the arity-2 handle_call/2 are Logger *backend*
-  # callbacks, not GenServer ones (handle_call/3 doesn't exist here), so they
-  # carry no @impl - there is no formal backend behaviour to implement.
-  def handle_event({level, _gl, {Logger, message, timestamp, metadata}}, state) do
-    do_record(level, message, metadata, timestamp)
-
-    {:ok, state}
-  end
-
-  # Logger.flush/0 sends :flush to every backend; swallow it like the
-  # console backend does so the pipeline never blocks on us
-  def handle_event(:flush, state), do: {:ok, state}
-
-  def handle_event(_event, state), do: {:ok, state}
-
-  def handle_call(_message, state), do: {:ok, :ok, state}
-
-  # GenServer shape for the table-owning process (the backend role never
-  # delivers handle_info - the handler wrapper only calls handle_event/2)
+  # GenServer shape for the table-owning process. The Logger backend role
+  # lives in LogBufferBackend - a gen_event handler must return {:ok, state}
+  # from handle_info/2, while a GenServer must return {:noreply, state}, so
+  # the two roles cannot share callbacks.
   @impl true
   def handle_info(_message, state), do: {:noreply, state}
 

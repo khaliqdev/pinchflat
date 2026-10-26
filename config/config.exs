@@ -93,7 +93,7 @@ config :logger, :default_formatter,
 # log lines into a bounded in-memory ETS ring buffer served at /logs.
 # :console stays listed, so console output (Docker logs) keeps flowing
 # untouched.
-config :logger, backends: [:console, Pinchflat.Logs.LogBuffer]
+config :logger, backends: [:console, Pinchflat.Logs.LogBufferBackend]
 
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
