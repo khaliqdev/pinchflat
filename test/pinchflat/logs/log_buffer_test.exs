@@ -191,6 +191,65 @@ defmodule Pinchflat.Logs.LogBufferTest do
 
       assert [%{metadata: %{request_id: "token=****"}}] = LogBuffer.all()
     end
+
+    test "redacts nested credential structures while plain scalars survive" do
+      LogBuffer.record(:info, "nested metadata", %{
+        request_id: "req-789",
+        attempts: 3,
+        detail: :synthetic,
+        credentials: %{token: "supersecret", kind: "api"},
+        request: %{authorization: "Bearer xyz", headers: %{"content-length" => "12"}}
+      })
+
+      assert [%{metadata: metadata, line: line}] = LogBuffer.all()
+
+      # Non-sensitive scalars keep flowing through untouched
+      assert metadata.request_id == "req-789"
+      assert metadata.attempts == 3
+      assert metadata.detail == :synthetic
+
+      # The walk reaches inside container keys that match no pattern
+      # ("credentials") and nukes the credential value it finds there...
+      assert metadata.credentials == %{token: "[REDACTED]", kind: "api"}
+
+      # ...while a sensitive key one level deeper loses its whole value
+      assert %{authorization: "[REDACTED]", headers: %{"content-length" => "12"}} = metadata.request
+
+      assert line =~ "[REDACTED]"
+      refute line =~ "supersecret"
+      refute line =~ "xyz"
+    end
+
+    test "redacts credential-bearing keys inside nested keyword lists" do
+      LogBuffer.record(:info, "nested pair list", %{params: [token: "kwsecret", page: 2]})
+
+      assert [%{metadata: %{params: params}}] = LogBuffer.all()
+
+      # The pair list keeps its shape; only the credential value is masked
+      assert params == [token: "[REDACTED]", page: 2]
+    end
+
+    test "passes inspected non-binary values through the same redaction" do
+      # A tuple is not walked, so its inspected form is what gets stored -
+      # and that form must go through the same masking binaries get
+      LogBuffer.record(:info, "inspected metadata", %{body: {:error, %{"token" => "abc123"}}})
+
+      assert [%{metadata: %{body: body}}] = LogBuffer.all()
+
+      assert body == ~s({:error, %{"token" => "****"}})
+      refute body =~ "abc123"
+    end
+
+    test "bounds the metadata walk - structures nested past the cap blanket-redact" do
+      deep = %{l1: %{l2: %{l3: %{l4: %{l5: %{secret: "deepsecret"}}}}}}
+
+      :ok = LogBuffer.record(:info, "deep metadata", %{nested: deep})
+
+      assert [%{metadata: %{nested: nested}}] = LogBuffer.all()
+
+      assert %{l1: %{l2: %{l3: %{l4: %{l5: "[REDACTED]"}}}}} = nested
+      refute inspect(nested) =~ "deepsecret"
+    end
   end
 
   describe "broadcasting" do
@@ -239,6 +298,41 @@ defmodule Pinchflat.Logs.LogBufferTest do
       :ok = LogBuffer.record(:info, "third", %{})
 
       assert_receive %Phoenix.Socket.Broadcast{topic: "log_buffer", event: "append", payload: %{seq: 3}}
+    end
+
+    test "flushes a write that lands inside the throttle window once the window elapses" do
+      # Shrink the window through the public table, like the cap row, so the
+      # trailing flush lands inside the test instead of 500ms out
+      :ets.insert(:log_buffer, {:broadcast_interval_ms, 25})
+
+      :ok = LogBuffer.record(:info, "first", %{})
+      assert_receive %Phoenix.Socket.Broadcast{topic: "log_buffer", event: "append", payload: %{seq: 1}}
+
+      # Lands inside the window: no immediate broadcast...
+      :ok = LogBuffer.record(:info, "trailing", %{})
+      refute_received %Phoenix.Socket.Broadcast{topic: "log_buffer", event: "append"}
+
+      # ...but the armed trailing flush must still deliver it, carrying the
+      # LATEST seq like the immediate flush does
+      assert_eventually(fn ->
+        assert_received %Phoenix.Socket.Broadcast{topic: "log_buffer", event: "append", payload: %{seq: 2}}
+      end)
+    end
+
+    test "arms exactly one trailing flush per window no matter how many writes land inside it" do
+      :ets.insert(:log_buffer, {:broadcast_interval_ms, 30})
+
+      :ok = LogBuffer.record(:info, "first", %{})
+      assert_receive %Phoenix.Socket.Broadcast{topic: "log_buffer", event: "append", payload: %{seq: 1}}
+
+      Enum.each(2..6, &LogBuffer.record(:info, "inside the window #{&1}", %{}))
+
+      assert_eventually(fn ->
+        assert_received %Phoenix.Socket.Broadcast{topic: "log_buffer", event: "append", payload: %{seq: 6}}
+      end)
+
+      # No stacked timers replaying the intermediate seqs behind it
+      refute_received %Phoenix.Socket.Broadcast{topic: "log_buffer", event: "append"}
     end
   end
 

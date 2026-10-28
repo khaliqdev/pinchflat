@@ -33,7 +33,10 @@ defmodule Pinchflat.Logs.LogBuffer do
   Messages are redacted before they enter the buffer: basic-auth URLs,
   query-string credentials (YouTube API keys, tokens, passwords) and
   Authorization header values get the masking treatment like every other
-  credential surface in the app.
+  credential surface in the app. Metadata gets the same treatment
+  recursively: a credential-bearing key blanks its whole value whatever the
+  nested shape, and non-binary values that fall through to `Kernel.inspect`
+  are inspected through the same masking pass.
 
   The buffer holds the last `LOG_BUFFER_LINES` lines (default 5,000,
   ~1 MB), re-read from the environment on reset so tests (and the deployment
@@ -45,12 +48,20 @@ defmodule Pinchflat.Logs.LogBuffer do
   @table :log_buffer
   @broadcast_topic "log_buffer"
   # One flush per interval no matter how many lines arrive - the viewer
-  # catches up by seq on every tick, so a burst can never flood the websocket
+  # catches up by seq on every tick, so a burst can never flood the websocket.
+  # A write landing INSIDE the window arms one trailing flush instead, so a
+  # line followed by logging silence still reaches live viewers (mirrored in
+  # the :broadcast_interval_ms bookkeeping row - tests shrink it there like
+  # the :cap row)
   @broadcast_interval_ms 500
   @default_buffer_lines 5_000
   # Over-long lines are clamped so one pathological yt-dlp blob can't blow
   # up the buffer's memory budget (~1 MB at 5k lines) or the websocket
   @max_line_chars 4_000
+  # Bounded walk for nested metadata sanitization (sanitize_value/3) - real
+  # metadata is shallow, and past the cap a structure blanket-redacts rather
+  # than risk an un-walked credential escaping in its inspected form
+  @max_metadata_depth 5
 
   @levels [:debug, :info, :warning, :error]
   @secret_query_keys "api[_-]?key|apikey|key|token|access[_-]?token|refresh[_-]?token|password|secret|client[_-]?secret"
@@ -193,6 +204,7 @@ defmodule Pinchflat.Logs.LogBuffer do
   """
   def reset! do
     if table_exists?() do
+      cancel_pending_flush()
       :ets.delete_all_objects(@table)
       ensure_bookkeeping_rows()
     end
@@ -289,6 +301,20 @@ defmodule Pinchflat.Logs.LogBuffer do
   # from handle_info/2, while a GenServer must return {:noreply, state}, so
   # the two roles cannot share callbacks.
   @impl true
+  def handle_info(:flush_pending, state) do
+    # Same hard rules as the write path: a flush tick must never take the
+    # table owner down
+    try do
+      flush_pending()
+    rescue
+      _ -> :ok
+    catch
+      _, _ -> :ok
+    end
+
+    {:noreply, state}
+  end
+
   def handle_info(_message, state), do: {:noreply, state}
 
   # Recording. Runs in whatever process reaches it - Logger's manager process
@@ -350,14 +376,93 @@ defmodule Pinchflat.Logs.LogBuffer do
 
   # The broadcast is best-effort: early-boot lines may land before the
   # endpoint/PubSub exist, and losing a tick is harmless (the viewer fetches
-  # by seq and mount-time reads cover everything buffered)
+  # by seq and mount-time reads cover everything buffered). A write landing
+  # INSIDE the window arms one trailing flush at the moment the window
+  # elapses - without it, a line followed by logging silence would never be
+  # broadcast until some later line happened to land
   defp maybe_broadcast(seq) do
     now = System.system_time(:millisecond)
     last_flush_at = flush_at()
 
-    if now - last_flush_at >= @broadcast_interval_ms do
+    if now - last_flush_at >= current_interval() do
+      # The immediate flush covers everything buffered, so a scheduled
+      # trailing flush is now redundant
+      cancel_pending_flush()
       :ets.insert(@table, {:flush_at, now})
 
+      try do
+        PinchflatWeb.Endpoint.broadcast(@broadcast_topic, "append", %{seq: seq})
+      rescue
+        _ -> :ok
+      catch
+        _, _ -> :ok
+      end
+    else
+      schedule_trailing_flush(now, last_flush_at)
+    end
+
+    :ok
+  end
+
+  # record/3 runs on arbitrary caller processes (Logger's manager for backend
+  # events), so the timer cannot land on self() - it targets the table-owning
+  # GenServer. One :pending_flush row armed with insert_new keeps concurrent
+  # writers from stacking timers; the stored timer ref lets reset!/0 and the
+  # immediate path cancel a now-redundant timer, and a late message that
+  # finds no marker (already fired, or wiped by reset!/0) is a no-op
+  defp schedule_trailing_flush(now, last_flush_at) do
+    try do
+      remaining = max(current_interval() - (now - last_flush_at), 1)
+      timer_ref = Process.send_after(__MODULE__, :flush_pending, remaining)
+
+      if :ets.insert_new(@table, {:pending_flush, timer_ref}) do
+        :ok
+      else
+        # Another writer armed this window's flush first - drop our timer
+        Process.cancel_timer(timer_ref)
+        :ok
+      end
+    rescue
+      _ -> :ok
+    catch
+      _, _ -> :ok
+    end
+  end
+
+  # delete_object (not delete by key): a writer racing in may have just
+  # re-armed the marker with its own timer, and swallowing that row would
+  # lose the trailing flush its line is waiting on
+  defp cancel_pending_flush do
+    case :ets.lookup(@table, :pending_flush) do
+      [{:pending_flush, timer_ref}] ->
+        Process.cancel_timer(timer_ref)
+        :ets.delete_object(@table, {:pending_flush, timer_ref})
+
+      _ ->
+        :ok
+    end
+  end
+
+  # Runs on the GenServer when the trailing flush fires. The marker is
+  # dropped BEFORE the broadcast so a write racing in re-arms a fresh flush
+  # instead of falling into the just-consumed one (delete_object, for the
+  # same reason as cancel_pending_flush); the payload mirrors the immediate
+  # flush exactly - the viewer keys off the LATEST seq
+  defp flush_pending do
+    case :ets.lookup(@table, :pending_flush) do
+      [{:pending_flush, timer_ref}] ->
+        :ets.delete_object(@table, {:pending_flush, timer_ref})
+        broadcast_latest()
+
+      _ ->
+        :ok
+    end
+  end
+
+  defp broadcast_latest do
+    seq = :ets.update_counter(@table, :seq, 0, {:seq, 0})
+
+    if seq > 0 do
       try do
         PinchflatWeb.Endpoint.broadcast(@broadcast_topic, "append", %{seq: seq})
       rescue
@@ -386,6 +491,9 @@ defmodule Pinchflat.Logs.LogBuffer do
     # insert (not insert_new) for the flush marker so a reset! also re-arms
     # the broadcast throttle - deterministic for tests, harmless on restart
     :ets.insert(@table, {:flush_at, 0})
+    # Same re-arm story as the flush marker - tests shrink the window straight
+    # through the public table, like they shrink the cap
+    :ets.insert(@table, {:broadcast_interval_ms, @broadcast_interval_ms})
     # insert (not insert_new) so a reset! after an env change picks up the
     # new cap, and tests can shrink it directly through the public table
     :ets.insert(@table, {:cap, default_buffer_lines()})
@@ -397,6 +505,15 @@ defmodule Pinchflat.Logs.LogBuffer do
     case :ets.lookup(@table, :cap) do
       [{:cap, cap}] when is_integer(cap) and cap > 0 -> cap
       _ -> @default_buffer_lines
+    end
+  end
+
+  # Mirrors current_cap/0: seeded by ensure_bookkeeping_rows, re-armed by
+  # reset!/0, shrinkable by tests straight through the public table
+  defp current_interval do
+    case :ets.lookup(@table, :broadcast_interval_ms) do
+      [{:broadcast_interval_ms, ms}] when is_integer(ms) and ms > 0 -> ms
+      _ -> @broadcast_interval_ms
     end
   end
 
@@ -449,12 +566,13 @@ defmodule Pinchflat.Logs.LogBuffer do
     end
   end
 
-  # Metadata is caller-supplied: keep scalar values (redacted), inspect
-  # everything else, and bound the whole thing so crash dumps can't blow the
-  # buffer's memory budget. Real Logger events arrive with a keyword LIST
-  # (Logger.Backends.Handler does Map.to_list of the Erlang metadata and
-  # prepends :erl_level), so pair-lists normalize to a map and request_id-
-  # style metadata survives; anything else is treated as having none
+  # Metadata is caller-supplied: keep scalar values (redacted), redact or
+  # recursively walk everything else, and bound the whole thing so crash
+  # dumps can't blow the buffer's memory budget. Real Logger events arrive
+  # with a keyword LIST (Logger.Backends.Handler does Map.to_list of the
+  # Erlang metadata and prepends :erl_level), so pair-lists normalize to a
+  # map and request_id-style metadata survives; anything else is treated as
+  # having none
   defp sanitize_metadata(metadata) when is_list(metadata) do
     if proper_pair_list?(metadata) do
       metadata |> Map.new() |> sanitize_metadata()
@@ -466,15 +584,72 @@ defmodule Pinchflat.Logs.LogBuffer do
   defp sanitize_metadata(metadata) when is_map(metadata) do
     metadata
     |> Enum.take(20)
-    |> Map.new(fn
-      {key, value} when is_binary(value) -> {key, redact(clamp_string(normalize_message(value), 500))}
-      {key, value} when is_number(value) or is_boolean(value) -> {key, value}
-      {key, value} when is_atom(value) and not is_nil(value) -> {key, value}
-      {key, value} -> {key, clamp_string(Kernel.inspect(value), 500)}
-    end)
+    |> Map.new(fn {key, value} -> {key, sanitize_value(key, value, @max_metadata_depth)} end)
   end
 
   defp sanitize_metadata(_), do: %{}
+
+  # A credential-bearing key nukes its whole value whatever the shape - a
+  # nested %{credentials: %{token: ...}} used to leak verbatim through the
+  # inspect fallback. Key matching mirrors redact/1's flat passes: the
+  # query-key alternation as a case-insensitive substring (the same match
+  # the inspect-style pair pass applies to keys), plus Authorization headers
+  defp sanitize_value(key, value, depth) do
+    if sensitive_key?(key) do
+      "[REDACTED]"
+    else
+      sanitize_nested(value, depth)
+    end
+  end
+
+  # Bounded walk: a map/list nested past the cap blanket-redacts rather than
+  # risk an un-walked credential escaping through its inspected form
+  defp sanitize_nested(value, depth) when is_map(value) and depth > 0 do
+    value
+    |> Enum.take(20)
+    |> Map.new(fn {key, nested} -> {key, sanitize_value(key, nested, depth - 1)} end)
+  end
+
+  # Nested keyword/pair lists keep their shape; their keys decide redaction
+  defp sanitize_nested(values, depth) when is_list(values) and depth > 0 do
+    if proper_pair_list?(values) do
+      values
+      |> Enum.take(20)
+      |> Enum.map(fn {key, nested} -> {key, sanitize_value(key, nested, depth - 1)} end)
+    else
+      Enum.map(values, &sanitize_nested(&1, depth - 1))
+    end
+  end
+
+  defp sanitize_nested(value, 0) when is_map(value) or is_list(value), do: "[REDACTED]"
+
+  defp sanitize_nested(value, _depth) when is_binary(value) do
+    redact(clamp_string(normalize_message(value), 500))
+  end
+
+  defp sanitize_nested(value, _depth) when is_number(value) or is_boolean(value), do: value
+
+  defp sanitize_nested(value, _depth) when is_atom(value) and not is_nil(value), do: value
+
+  # Exotic values (tuples, PIDs, refs, improper shapes): inspect, then the
+  # same redaction binaries get - the inspected text is just another string
+  # that can carry credentials
+  defp sanitize_nested(value, _depth) do
+    redact(clamp_string(Kernel.inspect(value), 500))
+  end
+
+  defp sensitive_key?(key) when is_atom(key), do: sensitive_name?(Atom.to_string(key))
+  defp sensitive_key?(key) when is_binary(key), do: sensitive_name?(key)
+
+  # Exotic keys (numbers, tuples) are never treated as credentials - their
+  # values still go through the walk or the redacted inspect fallback
+  defp sensitive_key?(_key), do: false
+
+  defp sensitive_name?(name) do
+    name = String.downcase(name)
+
+    String.contains?(name, "authorization") or Regex.match?(~r{(#{@secret_query_keys})}, name)
+  end
 
   # Guarded recursion instead of Keyword.keyword?/1 so an improper (hostile)
   # list degrades to "no metadata" instead of raising past do_record's catch-all
@@ -555,11 +730,24 @@ defmodule Pinchflat.Logs.LogBuffer do
   # | $message" so the viewer reads like docker logs.
 
   defp format_metadata(metadata) do
-    case Enum.map(metadata, fn {key, value} -> "#{key}=#{value}" end) do
+    case Enum.map(metadata, fn {key, value} -> "#{key}=#{format_metadata_value(value)}" end) do
       [] -> ""
       parts -> Enum.join(parts, " ") <> " "
     end
   end
+
+  # Metadata values may be sanitized STRUCTURES (maps/keyword lists survive
+  # the walk), which String interpolation can't render - and real Logger
+  # metadata can carry charlists that only interpolate when printable.
+  # Anything non-primitive renders as (already-redacted) inspected text.
+  defp format_metadata_value(value) when is_binary(value), do: value
+
+  defp format_metadata_value(value) when is_atom(value), do: to_string(value)
+
+  defp format_metadata_value(value) when is_number(value) or is_boolean(value), do: to_string(value)
+
+  defp format_metadata_value(value),
+    do: clamp_string(Kernel.inspect(value, limit: 20, printable_limit: 200), 500)
 
   defp format_timestamp({{y, mo, d}, {h, mi, s, ms}}) do
     :io_lib.format("~4..0B-~2..0B-~2..0B ~2..0B:~2..0B:~2..0B.~3..0B", [y, mo, d, h, mi, s, ms])
