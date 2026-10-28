@@ -49,14 +49,18 @@ defmodule PinchflatWeb.CustomComponents.TextComponents do
 
   @doc """
   Renders an icon as a link with the given href.
+
+  Icon-only links should pass a `label` for an accessible name (also exposed
+  as a `title` for mouse users).
   """
   attr :href, :string, required: true
   attr :icon, :string, required: true
   attr :class, :string, default: ""
+  attr :label, :string, default: nil
 
   def icon_link(assigns) do
     ~H"""
-    <.link href={@href} class={["hover:text-secondary duration-200 ease-in-out", @class]}>
+    <.link href={@href} class={["hover:text-secondary duration-200 ease-in-out", @class]} aria-label={@label} title={@label}>
       <CoreComponents.icon name={@icon} />
     </.link>
     """

@@ -102,6 +102,8 @@ defmodule PinchflatWeb.CoreComponents do
       the number of checked `selected_ids[]` boxes in the trigger's form
     * `data-confirm-confirm-text` / `data-confirm-cancel-text` - button labels
     * `data-confirm-kind="danger"` - renders the confirm button in red
+    * `data-destructive` (or `data-confirm-kind="danger"`) - destructive
+      dialogs open with focus on Cancel instead of the confirm button
 
   Confirming replays the trigger's own action: `data-method` links submit a
   POST form (mirroring phoenix_html), form submit buttons submit their form,

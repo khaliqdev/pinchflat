@@ -10,11 +10,27 @@
         <p class="text-md text-bodydark">Media Profiles set your preferences for fetching and downloading media.</p>
         <p class="text-md text-bodydark">Don't worry, you can create more Media Profiles later!</p>
         <div class="mt-8">
-          <.link href={~p"/media_profiles/new"}>
-            <.button color="bg-primary" rounding="rounded-lg" disabled={@media_profiles_exist}>
-              <span class="font-bold mx-2">+</span> New Media Profile
-            </.button>
+          <.link
+            :if={not @media_profiles_exist}
+            href={~p"/media_profiles/new"}
+            class={[
+              "inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap border px-4 py-0 text-center text-sm font-medium transition-colors",
+              "rounded-lg border-transparent bg-primary text-white hover:bg-opacity-90",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark"
+            ]}
+          >
+            <span class="font-bold mx-2">+</span> New Media Profile
           </.link>
+          <span
+            :if={@media_profiles_exist}
+            aria-disabled="true"
+            class={[
+              "inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap border px-4 py-0 text-center text-sm font-medium",
+              "rounded-lg cursor-not-allowed border-stroke bg-gray text-bodydark2 dark:border-strokedark dark:bg-meta-4 dark:text-bodydark2"
+            ]}
+          >
+            <span class="font-bold mx-2">+</span> New Media Profile
+          </span>
         </div>
       </section>
       <section class={["text-center", (!@media_profiles_exist || @sources_exist) && "opacity-20"]}>
@@ -24,11 +40,27 @@
           Each Media Profile can control many Sources so it's easy to add more content!
         </p>
         <div class="mt-8">
-          <.link href={~p"/sources/new"}>
-            <.button color="bg-primary" rounding="rounded-lg" disabled={not @media_profiles_exist}>
-              <span class="font-bold mx-2">+</span> New Source
-            </.button>
+          <.link
+            :if={@media_profiles_exist}
+            href={~p"/sources/new"}
+            class={[
+              "inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap border px-4 py-0 text-center text-sm font-medium transition-colors",
+              "rounded-lg border-transparent bg-primary text-white hover:bg-opacity-90",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark"
+            ]}
+          >
+            <span class="font-bold mx-2">+</span> New Source
           </.link>
+          <span
+            :if={not @media_profiles_exist}
+            aria-disabled="true"
+            class={[
+              "inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap border px-4 py-0 text-center text-sm font-medium",
+              "rounded-lg cursor-not-allowed border-stroke bg-gray text-bodydark2 dark:border-strokedark dark:bg-meta-4 dark:text-bodydark2"
+            ]}
+          >
+            <span class="font-bold mx-2">+</span> New Source
+          </span>
         </div>
       </section>
       <section class={["text-center", @sources_exist || "opacity-20"]}>
@@ -39,11 +71,27 @@
         </p>
         <p class="text-md text-bodydark">Feel free to add more Media Profiles or Sources in the meantime!</p>
         <div class="mt-8">
-          <.link href={~p"/?onboarding=0"}>
-            <.button color="bg-primary" rounding="rounded-lg" disabled={not @sources_exist}>
-              Let's Go <span class="font-bold mx-2">🚀</span>
-            </.button>
+          <.link
+            :if={@sources_exist}
+            href={~p"/?onboarding=0"}
+            class={[
+              "inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap border px-4 py-0 text-center text-sm font-medium transition-colors",
+              "rounded-lg border-transparent bg-primary text-white hover:bg-opacity-90",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark"
+            ]}
+          >
+            Let's Go <span class="font-bold mx-2">🚀</span>
           </.link>
+          <span
+            :if={not @sources_exist}
+            aria-disabled="true"
+            class={[
+              "inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap border px-4 py-0 text-center text-sm font-medium",
+              "rounded-lg cursor-not-allowed border-stroke bg-gray text-bodydark2 dark:border-strokedark dark:bg-meta-4 dark:text-bodydark2"
+            ]}
+          >
+            Let's Go <span class="font-bold mx-2">🚀</span>
+          </span>
         </div>
       </section>
     </div>

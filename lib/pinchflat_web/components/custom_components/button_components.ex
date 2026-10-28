@@ -116,6 +116,9 @@ defmodule PinchflatWeb.CustomComponents.ButtonComponents do
   @doc """
   Render a button with an icon. Optionally include a tooltip.
 
+  Icon-only buttons should pass a `label` for an accessible name; it falls
+  back to the tooltip text and is also exposed as a `title` for mouse users.
+
   ## Examples
 
       <.icon_button icon_name="hero-check" tooltip="Complete" />
@@ -123,9 +126,12 @@ defmodule PinchflatWeb.CustomComponents.ButtonComponents do
   attr :icon_name, :string, required: true
   attr :class, :string, default: ""
   attr :tooltip, :string, default: nil
+  attr :label, :string, default: nil
   attr :rest, :global
 
   def icon_button(assigns) do
+    assigns = assign(assigns, :label, assigns.label || assigns.tooltip)
+
     ~H"""
     <TextComponents.tooltip position="bottom" tooltip={@tooltip} tooltip_class="text-nowrap">
       <button
@@ -135,6 +141,8 @@ defmodule PinchflatWeb.CustomComponents.ButtonComponents do
           @class
         ]}
         type="button"
+        aria-label={@label}
+        title={@label}
         {@rest}
       >
         <CoreComponents.icon name={@icon_name} class="text-zinc-700 dark:text-stroke" />

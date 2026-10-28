@@ -12,7 +12,7 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
   def render(%{total_record_count: 0} = assigns) do
     ~H"""
     <div class="mb-4 flex items-center">
-      <.icon_button icon_name="hero-arrow-path" class="h-10 w-10" phx-click="reload_page" />
+      <.icon_button icon_name="hero-arrow-path" class="h-10 w-10" phx-click="reload_page" label="Refresh" />
       <p class="ml-2">Nothing Here!</p>
     </div>
     """
@@ -28,7 +28,7 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
             Showing <.localized_number number={length(@records)} /> of <.localized_number number={@filtered_record_count} />
           </span>
         </span>
-        <div class="bg-gray-2 dark:bg-meta-4 rounded-md">
+        <div class="bg-gray-2 dark:bg-meta-4 rounded-md focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 dark:focus-within:ring-offset-boxdark">
           <div class="relative">
             <span class="absolute left-2 top-1/2 -translate-y-1/2 flex">
               <.icon name="hero-magnifying-glass" />
@@ -39,6 +39,7 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
                 name="q"
                 value={@search_term}
                 placeholder="Search in table..."
+                aria-label="Search in table"
                 class="w-full bg-transparent pl-9 pr-4 border-0 focus:ring-0 focus:outline-none"
                 phx-debounce="200"
               />
@@ -76,13 +77,14 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
           :let={media_item}
           label={
             Phoenix.HTML.raw(
-              ~s(<input type="checkbox" class="accent-primary" phx-click="toggle_select_all" phx-value-value="true" />)
+              ~s(<input type="checkbox" class="accent-primary" aria-label="Select all items on this page" phx-click="toggle_select_all" phx-value-value="true" />)
             )
           }
         >
           <input
             type="checkbox"
             class="accent-primary"
+            aria-label={"Select #{media_item.title}"}
             checked={MapSet.member?(@selected_ids, media_item.id)}
             phx-click="select_row"
             phx-value-id={media_item.id}
@@ -114,7 +116,12 @@ defmodule PinchflatWeb.Sources.MediaItemTableLive do
           {Pinchflat.Utils.DisplayTime.date_to_local(media_item.uploaded_at)}
         </:col>
         <:col :let={media_item} label="" class="flex justify-end">
-          <.icon_link href={~p"/sources/#{@source.id}/media/#{media_item.id}/edit"} icon="hero-pencil-square" class="mr-4" />
+          <.icon_link
+            href={~p"/sources/#{@source.id}/media/#{media_item.id}/edit"}
+            icon="hero-pencil-square"
+            label={"Edit #{media_item.title}"}
+            class="mr-4"
+          />
         </:col>
       </.table>
       <section class="flex justify-center mt-5">

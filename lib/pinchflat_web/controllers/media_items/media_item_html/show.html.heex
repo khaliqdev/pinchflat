@@ -9,10 +9,15 @@
   </div>
 
   <nav>
-    <.link href={~p"/sources/#{@media_item.source_id}/media/#{@media_item}/edit"}>
-      <.button color="bg-primary" rounding="rounded-lg">
-        <.icon name="hero-pencil-square" class="mr-2" /> Edit
-      </.button>
+    <.link
+      href={~p"/sources/#{@media_item.source_id}/media/#{@media_item}/edit"}
+      class={[
+        "inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap border px-4 py-0 text-center text-sm font-medium transition-colors",
+        "rounded-lg border-transparent bg-primary text-white hover:bg-opacity-90",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark"
+      ]}
+    >
+      <.icon name="hero-pencil-square" class="mr-2" /> Edit
     </.link>
   </nav>
 </div>
@@ -24,7 +29,7 @@
       </:tab_append>
 
       <:tab title="Media" id="media">
-        <div class="flex flex-col gap-10 text-white">
+        <div class="flex flex-col gap-10 text-black dark:text-white">
           <section :if={@media_item.last_error} class="mt-6">
             <div class="flex items-center gap-1 mb-2">
               <.icon name="hero-exclamation-circle-solid" class="text-red-500" />
@@ -76,7 +81,7 @@
       </:tab>
       <:tab title="Tasks" id="tasks">
         <%= if match?([_|_], @media_item.tasks) do %>
-          <.table rows={@media_item.tasks} table_class="text-white">
+          <.table rows={@media_item.tasks} table_class="text-black dark:text-white">
             <:col :let={task} label="Worker">
               {task.job.worker}
             </:col>

@@ -11,7 +11,7 @@ defmodule Pinchflat.Pages.HistoryTableLive do
   def render(%{records: []} = assigns) do
     ~H"""
     <div class="mb-4 flex items-center">
-      <.icon_button icon_name="hero-arrow-path" class="h-10 w-10" phx-click="reload_page" />
+      <.icon_button icon_name="hero-arrow-path" class="h-10 w-10" phx-click="reload_page" label="Reload table" />
       <p class="ml-2">Nothing Here!</p>
     </div>
     """

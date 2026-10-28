@@ -11,6 +11,9 @@
 //     the trigger's form
 //   data-confirm-confirm-text / data-confirm-cancel-text - button labels
 //   data-confirm-kind="danger" - renders the confirm button in red
+//   data-destructive - opens the dialog with focus on Cancel so a stray Enter
+//     can't immediately run the action; danger-kind triggers are treated as
+//     destructive too
 //
 // We intercept in the capture phase and preventDefault, so phoenix_html's own
 // data-confirm/data-method window handler (which bails on defaultPrevented)
@@ -45,6 +48,9 @@ const selectedCount = (trigger) => {
   return form ? form.querySelectorAll('input[type="checkbox"][name="selected_ids[]"]:checked').length : 0
 }
 
+const isDestructive = (trigger) =>
+  trigger.hasAttribute('data-destructive') || trigger.getAttribute('data-confirm-kind') === 'danger'
+
 const fillDialog = (trigger) => {
   const dialog = dialogRoot()
   const count = selectedCount(trigger)
@@ -69,7 +75,8 @@ const openDialog = (trigger) => {
 
   dialogRoot().classList.remove('hidden')
   document.body.classList.add('overflow-hidden')
-  dialogRoot().querySelector('[data-confirm-confirm]').focus()
+  const initialFocus = isDestructive(trigger) ? '[data-confirm-cancel]' : '[data-confirm-confirm]'
+  dialogRoot().querySelector(initialFocus).focus()
 }
 
 const closeDialog = () => {

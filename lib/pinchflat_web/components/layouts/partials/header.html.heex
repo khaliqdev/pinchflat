@@ -21,7 +21,7 @@
 
     <div class="flex items-center gap-3">
       <div class="w-44 sm:w-64 xl:w-80">
-        <div class="relative">
+        <div class="relative rounded-md focus-within:ring-2 focus-within:ring-primary focus-within:ring-offset-2 dark:focus-within:ring-offset-boxdark">
           <span class="absolute left-2 top-1/2 -translate-y-1/2 flex">
             <.icon name="hero-magnifying-glass" />
           </span>
@@ -31,6 +31,7 @@
               name="q"
               value={@params["q"]}
               placeholder="Search all media..."
+              aria-label="Search all media"
               class="w-full bg-transparent py-1.5 pl-9 pr-4 border-0 focus:ring-0 focus:outline-none"
             />
           </form>
