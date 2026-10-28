@@ -1,163 +1,65 @@
-<%!-- Home, styled like YouTube on TV: a cinematic hero for the newest (or
-     actively downloading) media, then horizontal shelves of cover-art cards
-     with TV-style focus (scale + ring) on hover and keyboard focus. KPI data
-     lives in the slim status strip; slower-moving system state in the footer
-     line. The live downloading shelf is DownloadsProgressLive. --%>
+<%!-- Dashboard home - layout per the approved mockup (Phase 6 wave 3). KPIs
+     and panels are controller-rendered snapshots; the downloading strip is the
+     live DownloadsProgressLive. --%>
 
-<section class="relative overflow-hidden rounded-2xl bg-zinc-900 ring-1 ring-black/10 dark:ring-white/10">
-  <%= if @hero_item do %>
-    <div class="relative aspect-video max-h-[68vh] w-full md:aspect-[21/9]">
-      <img
-        :if={hero_image_src(@hero_item)}
-        src={hero_image_src(@hero_item)}
-        alt={@hero_item.title}
-        loading="eager"
-        class="absolute inset-0 h-full w-full object-cover"
-        onerror={hero_image_onerror(@hero_item)}
-      />
-      <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10 md:bg-gradient-to-r md:from-black/90 md:via-black/45 md:to-transparent">
-      </div>
-
-      <div class="absolute inset-x-0 bottom-0 p-5 md:p-10">
-        <div class="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
-          <%= if @hero_is_downloading do %>
-            <span class="flex items-center gap-1.5">
-              <span class="h-2 w-2 animate-pulse rounded-full bg-red-500"></span> Downloading now
-            </span>
-          <% else %>
-            Latest download
-          <% end %>
-        </div>
-
-        <h1 class="mt-2 line-clamp-2 max-w-3xl text-2xl font-bold leading-tight text-white md:text-4xl">
-          {@hero_item.title}
-        </h1>
-
-        <div class="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-sm text-white/80">
-          <.link href={~p"/sources/#{@hero_item.source_id}"} class="font-medium hover:underline">
-            {@hero_item.source.custom_name || @hero_item.source.collection_name}
-          </.link>
-          <span :if={@hero_item.duration_seconds}>· {format_duration(@hero_item.duration_seconds)}</span>
-          <span :if={@hero_item.media_downloaded_at}>· {days_ago(@hero_item.media_downloaded_at)}</span>
-          <span :if={@hero_item.media_size_bytes}>
-            · <.readable_filesize byte_size={@hero_item.media_size_bytes} />
-          </span>
-        </div>
-
-        <div class="mt-5 flex flex-wrap items-center gap-3">
-          <.link
-            href={~p"/sources/#{@hero_item.source_id}/media/#{@hero_item}"}
-            class="rounded-full bg-white px-6 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90"
-          >
-            Open media
-          </.link>
-          <.link
-            href={~p"/sources"}
-            class="rounded-full border border-white/30 px-6 py-2.5 text-sm font-medium text-white transition hover:bg-white/10"
-          >
-            Browse library
-          </.link>
-        </div>
-      </div>
-    </div>
-  <% else %>
-    <div class="flex aspect-video max-h-[68vh] w-full items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-950 md:aspect-[21/9]">
-      <div class="max-w-lg px-6 text-center">
-        <.icon name="hero-tv" class="mx-auto h-12 w-12 text-white/40" />
-        <h1 class="mt-4 text-2xl font-bold text-white md:text-3xl">Your library, front and center</h1>
-        <p class="mt-2 text-sm leading-6 text-white/70">
-          Finished downloads land here, newest first. Add a source to get started.
-        </p>
-        <.link
-          href={~p"/sources/new"}
-          class="mt-6 inline-block rounded-full bg-white px-6 py-2.5 text-sm font-semibold text-black transition hover:bg-white/90"
-        >
-          Add a source
-        </.link>
-      </div>
-    </div>
-  <% end %>
-</section>
-
-<%!-- Slim status strip: the dashboard KPIs as chips --%>
-<div class="mt-4 flex flex-wrap items-center gap-2">
-  <span class="flex items-center gap-1.5 rounded-full border border-stroke bg-white px-3 py-1.5 text-[13px] text-bodydark2 dark:border-strokedark dark:bg-boxdark">
-    <.icon name="hero-film" class="h-4 w-4" />
-    <span class="font-semibold text-black dark:text-white"><.localized_number number={@media_item_count} /></span>
-    in library · <.readable_filesize byte_size={@media_item_size} />
-  </span>
-
-  <span
-    class="flex items-center gap-2 rounded-full border border-stroke bg-white px-3 py-1.5 text-[13px] text-bodydark2 dark:border-strokedark dark:bg-boxdark"
-    title={
-      if @media_free_bytes && @media_total_bytes,
-        do: "Downloads volume: #{filesize_string(@media_free_bytes)} free of #{filesize_string(@media_total_bytes)}",
-        else: nil
-    }
-  >
-    <.icon name="hero-hard-drive" class="h-4 w-4" />
-    <%= if @media_free_bytes do %>
-      <span class="font-semibold text-black dark:text-white"><.readable_filesize byte_size={@media_free_bytes} /></span>
-      free
-      <span class="hidden h-1.5 w-16 overflow-hidden rounded-full bg-zinc-200 dark:bg-meta-4 sm:block">
-        <span
-          :if={@media_total_bytes && @media_total_bytes > 0}
-          class="block h-full rounded-full bg-green-500"
+<div class="grid grid-cols-2 gap-4 md:grid-cols-5">
+  <div class="flex flex-col justify-center rounded-sm border px-6 py-5 shadow-default border-stroke dark:border-strokedark bg-white dark:bg-boxdark">
+    <span class="text-md font-medium text-zinc-600 dark:text-bodydark">Library</span>
+    <h4 class="text-title-md font-bold text-black dark:text-white"><.localized_number number={@media_item_count} /></h4>
+    <span class="text-sm leading-5 text-zinc-600 dark:text-bodydark">
+      <.readable_filesize byte_size={@media_item_size} /> on disk
+    </span>
+  </div>
+  <div class="flex flex-col justify-center rounded-sm border px-6 py-5 shadow-default border-stroke dark:border-strokedark bg-white dark:bg-boxdark">
+    <span class="text-md font-medium text-zinc-600 dark:text-bodydark">Free Space</span>
+    <h4 class="text-title-md font-bold text-black dark:text-white">
+      <%= if @media_free_bytes do %>
+        <.readable_filesize byte_size={@media_free_bytes} />
+      <% else %>
+        Unavailable
+      <% end %>
+    </h4>
+    <%= if @media_free_bytes && @media_total_bytes && @media_total_bytes > 0 do %>
+      <div class="mt-1 h-1.5 w-full rounded-full bg-zinc-200 dark:bg-strokedark overflow-hidden">
+        <div
+          class="h-full rounded-full bg-green-500"
           style={"width: #{Float.round(@media_free_bytes / @media_total_bytes * 100, 1)}%"}
         >
-        </span>
-      </span>
-    <% else %>
-      free space unavailable
+        </div>
+      </div>
     <% end %>
-  </span>
-
-  <.link
-    href={~p"/sources"}
-    title={if @pending_disk_need > 0, do: "Estimated extra disk needed: #{filesize_string(@pending_disk_need)}"}
-    class="flex items-center gap-1.5 rounded-full border border-stroke bg-white px-3 py-1.5 text-[13px] text-bodydark2 transition hover:border-primary dark:border-strokedark dark:bg-boxdark"
-  >
-    <.icon name="hero-clock" class="h-4 w-4" />
-    <span class="font-semibold text-black dark:text-white"><.localized_number number={@pending_count} /></span> pending
-  </.link>
-
-  <span
-    :if={@downloading_count > 0}
-    class="flex items-center gap-1.5 rounded-full border border-sky-500/30 bg-sky-500/10 px-3 py-1.5 text-[13px] text-sky-600 dark:text-sky-400"
-  >
-    <.icon name="hero-arrow-down-tray" class="h-4 w-4 animate-pulse" />
-    <span class="font-semibold"><.localized_number number={@downloading_count} /></span> downloading now
-  </span>
-
-  <.link
-    href={~p"/errors"}
-    class={
-      if @failed_count > 0 do
-        "flex items-center gap-1.5 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[13px] text-red-600 dark:text-red-400 transition hover:bg-red-500/20"
-      else
-        "flex items-center gap-1.5 rounded-full border border-stroke bg-white px-3 py-1.5 text-[13px] text-bodydark2 transition hover:border-primary dark:border-strokedark dark:bg-boxdark"
-      end
-    }
-  >
-    <.icon name="hero-exclamation-triangle" class="h-4 w-4" />
-    <span class="font-semibold"><.localized_number number={@failed_count} /></span> failed
-  </.link>
-
-  <span
-    :if={@rate_limited}
-    class="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[13px] text-amber-700 dark:text-amber-400"
-    title="Downloads are paused while the cooldown runs"
-  >
-    <.icon name="hero-exclamation-triangle" class="h-4 w-4" /> YouTube cooldown · ~{div(@rate_limit_seconds, 60)} min
-  </span>
-
-  <span
-    :if={@cookies_present && @cookies_age_days && @cookies_age_days >= 30}
-    class="flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-[13px] text-amber-700 dark:text-amber-400"
-    title="YouTube cookies age out - re-upload fresh ones in Settings"
-  >
-    <.icon name="hero-clock" class="h-4 w-4" /> cookies {@cookies_age_days}d old
-  </span>
+  </div>
+  <div class="flex flex-col justify-center rounded-sm border px-6 py-5 shadow-default border-stroke dark:border-strokedark bg-white dark:bg-boxdark">
+    <a href={~p"/sources"} class="flex flex-col items-center py-2">
+      <span class="text-md font-medium text-zinc-600 dark:text-bodydark">Pending</span>
+      <h4 class="text-title-md font-bold text-black dark:text-white"><.localized_number number={@pending_count} /></h4>
+      <span class="text-sm leading-5 text-zinc-600 dark:text-bodydark">across sources</span>
+    </a>
+  </div>
+  <div class="flex flex-col justify-center rounded-sm border px-6 py-5 shadow-default border-stroke dark:border-strokedark bg-white dark:bg-boxdark">
+    <span class="flex flex-col items-center py-2">
+      <span class="text-md font-medium text-zinc-600 dark:text-bodydark">
+        Downloading now <span class="ml-1 inline-block h-2 w-2 rounded-full bg-green-500 animate-pulse"></span>
+      </span>
+      <h4 class="text-title-md font-bold text-black dark:text-white">
+        <.localized_number number={@downloading_count} />
+      </h4>
+      <span class="text-sm leading-5 text-zinc-600 dark:text-bodydark">live progress below</span>
+    </span>
+  </div>
+  <div class="flex flex-col justify-center rounded-sm border px-6 py-5 shadow-default border-stroke dark:border-strokedark bg-white dark:bg-boxdark">
+    <a href={~p"/errors"} class="flex flex-col items-center py-2">
+      <span class="text-md font-medium text-zinc-600 dark:text-bodydark">Failed</span>
+      <h4 class={[
+        "text-title-md font-bold",
+        @failed_count > 0 && "text-red-500 dark:text-red-400",
+        @failed_count == 0 && "text-black dark:text-white"
+      ]}>
+        <.localized_number number={@failed_count} />
+      </h4>
+      <span class="text-sm leading-5 text-zinc-600 dark:text-bodydark">review in Errors</span>
+    </a>
+  </div>
 </div>
 
 <div
@@ -171,123 +73,211 @@
   </span>
 </div>
 
-<%!-- Shelves: live downloads, then recents, then one row per source --%>
-<div class="mt-6 flex flex-col gap-8">
-  {live_render(@conn, Pinchflat.Pages.DownloadsProgressLive)}
+<div class="grid grid-cols-1 gap-4 lg:grid-cols-3 mt-4 items-start">
+  <div class="lg:col-span-2 flex flex-col gap-4 min-w-0">
+    {live_render(@conn, Pinchflat.Pages.DownloadsProgressLive)}
 
-  <section :if={@recent_downloads != []} class="group/shelf" x-data>
-    <div class="mb-3 flex items-center justify-between gap-3">
-      <div class="flex min-w-0 items-center gap-2.5">
-        <h2 class="truncate text-lg font-semibold text-black dark:text-white">Recently downloaded</h2>
-        <span class="shrink-0 text-xs text-bodydark2"><.localized_number number={@media_item_count} /> in library</span>
-      </div>
-      <div class="hidden items-center gap-1.5 opacity-0 transition focus-within:opacity-100 group-hover/shelf:opacity-100 md:flex">
-        <button
-          type="button"
-          aria-label="Scroll left"
-          @click="$refs.track.scrollBy({left: -680, behavior: 'smooth'})"
-          class="rounded-full border border-stroke bg-white p-1.5 text-bodydark2 transition hover:text-black dark:border-strokedark dark:bg-boxdark dark:hover:text-white"
-        >
-          <.icon name="hero-chevron-left" class="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          aria-label="Scroll right"
-          @click="$refs.track.scrollBy({left: 680, behavior: 'smooth'})"
-          class="rounded-full border border-stroke bg-white p-1.5 text-bodydark2 transition hover:text-black dark:border-strokedark dark:bg-boxdark dark:hover:text-white"
-        >
-          <.icon name="hero-chevron-right" class="h-4 w-4" />
-        </button>
-      </div>
-    </div>
-
-    <div x-ref="track" class="no-scrollbar -mb-2 flex snap-x gap-4 overflow-x-auto pb-2">
-      <.tv_media_card :for={item <- @recent_downloads} item={item} />
-    </div>
-  </section>
-
-  <section :for={shelf <- @source_shelves} class="group/shelf" x-data>
-    <div class="mb-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-      <div class="flex min-w-0 flex-wrap items-center gap-2">
-        <h2 class="truncate text-lg font-semibold text-black dark:text-white">
-          <.link href={~p"/sources/#{shelf.source.id}"} class="hover:underline">
-            {shelf.source.custom_name || shelf.source.collection_name}
-          </.link>
-        </h2>
-        <span
-          :if={shelf.downloading_count > 0}
-          class="rounded-md border border-sky-500/20 bg-sky-500/10 px-1.5 py-0.5 text-[11px] font-medium leading-4 text-sky-600 dark:text-sky-400"
-        >
-          downloading
-        </span>
-        <span
-          :if={shelf.pending_count > 0}
-          class="rounded-md border border-amber-500/20 bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium leading-4 text-amber-700 dark:text-amber-400"
-        >
-          {shelf.pending_count} pending
-        </span>
-        <span
-          :if={shelf.failed_count > 0}
-          class="rounded-md border border-red-500/20 bg-red-500/10 px-1.5 py-0.5 text-[11px] font-medium leading-4 text-red-600 dark:text-red-400"
-        >
-          {shelf.failed_count} failed
-        </span>
-        <span
-          :if={not shelf.source.enabled}
-          class="rounded-md border border-stroke bg-gray-2 px-1.5 py-0.5 text-[11px] font-medium leading-4 text-bodydark2 dark:border-strokedark dark:bg-meta-4"
-        >
-          paused
-        </span>
+    <div class="rounded-sm border shadow-default border-stroke dark:border-strokedark bg-white dark:bg-boxdark p-5">
+      <div class="flex items-center justify-between mb-4">
+        <span class="text-lg font-semibold text-black dark:text-white">Recently downloaded</span>
+        <span class="text-sm text-bodydark2"><.localized_number number={@media_item_count} /> in library</span>
       </div>
 
-      <div class="flex items-center gap-1.5">
+      <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <.link
-          href={~p"/sources/#{shelf.source.id}/check_now"}
+          :for={item <- @recent_downloads}
+          href={~p"/sources/#{item.source_id}/media/#{item}"}
+          class="group overflow-hidden rounded-sm border border-stroke bg-gray-2 dark:border-strokedark dark:bg-boxdark hover:border-primary"
+        >
+          <div class="relative aspect-video bg-zinc-300 dark:bg-meta-4">
+            <img
+              :if={(item.thumbnail_filepath && item.uuid) || item.media_id}
+              src={
+                cond do
+                  item.thumbnail_filepath && item.uuid -> ~p"/media/#{item.uuid}/episode_image"
+                  item.media_id -> "https://i.ytimg.com/vi/#{item.media_id}/mqdefault.jpg"
+                  true -> nil
+                end
+              }
+              alt=""
+              loading="lazy"
+              class="h-full w-full object-cover transition group-hover:scale-105"
+              onerror="this.classList.add('hidden')"
+            />
+            <span
+              :if={item.duration_seconds}
+              class="absolute bottom-1.5 right-1.5 rounded bg-black/75 px-1.5 py-0.5 text-[11px] font-medium text-white"
+            >
+              {format_duration(item.duration_seconds)}
+            </span>
+          </div>
+          <div class="p-2.5">
+            <div class="line-clamp-2 min-h-[34px] text-[12.5px] font-semibold leading-snug text-black dark:text-white">
+              {item.title}
+            </div>
+            <div class="mt-1 text-[11.5px] text-bodydark2">
+              {item.source.custom_name} · {days_ago(item.media_downloaded_at)}
+            </div>
+          </div>
+        </.link>
+      </div>
+
+      <div class="mt-4 text-center">
+        <.link href={~p"/sources"} class="text-sm text-primary hover:underline">browse the full library →</.link>
+      </div>
+    </div>
+
+    <div class="rounded-sm border shadow-default border-stroke dark:border-strokedark bg-white dark:bg-boxdark p-5">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-lg font-semibold text-black dark:text-white">Sources</span>
+        <.link href={~p"/sources"} class="text-sm text-primary hover:underline">manage sources →</.link>
+      </div>
+
+      <div
+        :for={health <- @sources_health}
+        class="flex flex-wrap items-center gap-3 border-b border-stroke py-3 last:border-b-0 dark:border-strokedark"
+      >
+        <span class={[
+          "h-2.5 w-2.5 shrink-0 rounded-full",
+          health.source.enabled && health.failed_count == 0 && "bg-green-500",
+          (!health.source.enabled || health.failed_count > 0) && "bg-amber-500"
+        ]}>
+        </span>
+        <.link
+          href={~p"/sources/#{health.source.id}"}
+          class="text-sm font-semibold text-black dark:text-white hover:underline"
+        >
+          {health.source.custom_name || health.source.collection_name}
+        </.link>
+        <span class="text-xs text-bodydark2">
+          checked {if health.source.last_indexed_at,
+            do: DisplayTime.date_to_local(health.source.last_indexed_at) |> Date.to_iso8601(),
+            else: "never"}
+        </span>
+        <span class="ml-auto flex items-center gap-2">
+          <span
+            :if={health.downloading_count > 0}
+            class="rounded-md border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-xs font-medium leading-4 text-blue-700 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-400"
+          >
+            downloading
+          </span>
+          <span
+            :if={health.pending_count > 0}
+            class="rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-xs font-medium leading-4 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400"
+          >
+            {health.pending_count} pending
+          </span>
+          <span
+            :if={health.failed_count > 0}
+            class="rounded-md border border-red-200 bg-red-50 px-1.5 py-0.5 text-xs font-medium leading-4 text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400"
+          >
+            {health.failed_count} failed
+          </span>
+        </span>
+        <.link
+          href={~p"/sources/#{health.source.id}/check_now"}
           method="post"
-          class="rounded-md border border-stroke px-2.5 py-1 text-xs font-medium text-bodydark2 transition hover:border-bodydark2 hover:text-bodydark1 dark:border-strokedark"
+          class="rounded-md border border-stroke px-2.5 py-1 text-xs font-medium text-bodydark2 hover:text-bodydark1 hover:border-bodydark2 dark:border-strokedark"
         >
           Check now
         </.link>
-        <div class="hidden items-center gap-1.5 opacity-0 transition focus-within:opacity-100 group-hover/shelf:opacity-100 md:flex">
-          <button
-            type="button"
-            aria-label="Scroll left"
-            @click="$refs.track.scrollBy({left: -680, behavior: 'smooth'})"
-            class="rounded-full border border-stroke bg-white p-1.5 text-bodydark2 transition hover:text-black dark:border-strokedark dark:bg-boxdark dark:hover:text-white"
-          >
-            <.icon name="hero-chevron-left" class="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label="Scroll right"
-            @click="$refs.track.scrollBy({left: 680, behavior: 'smooth'})"
-            class="rounded-full border border-stroke bg-white p-1.5 text-bodydark2 transition hover:text-black dark:border-strokedark dark:bg-boxdark dark:hover:text-white"
-          >
-            <.icon name="hero-chevron-right" class="h-4 w-4" />
-          </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="flex flex-col gap-4">
+    <div class="rounded-sm border shadow-default border-stroke dark:border-strokedark bg-white dark:bg-boxdark p-5">
+      <span class="text-lg font-semibold text-black dark:text-white">Needs attention</span>
+      <div class="mt-3 flex flex-col gap-2.5">
+        <div
+          :if={@failed_count > 0}
+          class={[
+            "flex items-start gap-2.5 rounded-md border px-3 py-2.5",
+            @failed_count > 0 &&
+              "border-red-300 bg-red-50 text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400"
+          ]}
+        >
+          <.icon name="hero-exclamation-triangle" class="mt-0.5 h-4 w-4 shrink-0" />
+          <div class="text-sm">
+            <a href={~p"/errors"} class="font-medium hover:underline">
+              {@failed_count} failed download{if @failed_count == 1, do: "", else: "s"}
+            </a>
+            <div class="text-xs opacity-80">review and retry from the Errors console</div>
+          </div>
+        </div>
+
+        <div
+          :if={@cookies_present && @cookies_age_days && @cookies_age_days >= 30}
+          class="flex items-start gap-2.5 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400"
+        >
+          <.icon name="hero-clock" class="mt-0.5 h-4 w-4 shrink-0" />
+          <div class="text-sm">
+            <b class="font-medium">Cookies uploaded {@cookies_age_days} days ago</b>
+            <div class="text-xs opacity-80">YouTube cookies age out - consider re-uploading fresh ones in Settings</div>
+          </div>
+        </div>
+
+        <div
+          :if={@pending_disk_need > 0}
+          class="flex items-start gap-2.5 rounded-md border border-stroke bg-gray-2 px-3 py-2.5 text-body dark:border-strokedark dark:bg-meta-4"
+        >
+          <.icon name="hero-hard-drive" class="mt-0.5 h-4 w-4 shrink-0 text-bodydark2" />
+          <div class="text-sm">
+            {@pending_count} pending will need roughly
+            <b class="font-medium"><.readable_filesize byte_size={@pending_disk_need} /></b>
+            <div class="text-xs text-bodydark2">estimated from your average download size</div>
+          </div>
+        </div>
+
+        <div class="flex items-start gap-2.5 rounded-md border border-stroke bg-gray-2 px-3 py-2.5 text-body dark:border-strokedark dark:bg-meta-4">
+          <.icon name="hero-arrow-path" class="mt-0.5 h-4 w-4 shrink-0 text-bodydark2" />
+          <div class="text-sm">
+            yt-dlp <b class="font-medium">{@yt_dlp_version || "version unknown"}</b>
+            <div class="text-xs text-bodydark2">
+              nightly auto-update {if @yt_dlp_auto_update, do: "enabled", else: "disabled"}
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
-    <div x-ref="track" class="no-scrollbar -mb-2 flex snap-x gap-4 overflow-x-auto pb-2">
-      <.tv_media_card :for={item <- shelf.latest} item={item} />
+    <div class="rounded-sm border shadow-default border-stroke dark:border-strokedark bg-white dark:bg-boxdark p-5">
+      <span class="text-lg font-semibold text-black dark:text-white">Rate limit</span>
+      <div class="mt-3 flex flex-col gap-2.5">
+        <%= if @rate_limited do %>
+          <div class="flex items-start gap-2.5 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400">
+            <.icon name="hero-exclamation-triangle" class="mt-0.5 h-4 w-4 shrink-0" />
+            <div class="text-sm">
+              <b class="font-medium">YouTube cooldown active</b>
+              <div class="text-xs opacity-80">
+                resumes in ~{div(@rate_limit_seconds, 60)} min - downloads are paused
+              </div>
+            </div>
+          </div>
+        <% else %>
+          <div class="flex items-start gap-2.5 rounded-md border border-green-200 bg-green-50 px-3 py-2.5 text-green-700 dark:border-green-500/20 dark:bg-green-500/10 dark:text-green-400">
+            <.icon name="hero-check" class="mt-0.5 h-4 w-4 shrink-0" />
+            <div class="text-sm">No cooldown active - YouTube access is normal</div>
+          </div>
+        <% end %>
+      </div>
     </div>
-  </section>
-</div>
 
-<%!-- Slow-moving system state as a footer line --%>
-<div class="mt-8 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-t border-stroke pt-4 text-xs text-bodydark2 dark:border-strokedark">
-  <span>
-    yt-dlp <span class="font-medium text-black dark:text-white">{@yt_dlp_version || "version unknown"}</span>
-    · auto-update {if @yt_dlp_auto_update, do: "enabled", else: "disabled"}
-  </span>
-  <span :if={@last_backup_at}>
-    last backup {DisplayTime.date_to_local(@last_backup_at) |> Date.to_iso8601()}
-  </span>
-  <span :if={is_nil(@last_backup_at)}>
-    no backups yet - the nightly backup will create the first
-  </span>
-  <span :if={@cookies_present && @cookies_age_days}>
-    cookies uploaded {@cookies_age_days} days ago
-  </span>
+    <div class="rounded-sm border shadow-default border-stroke dark:border-strokedark bg-white dark:bg-boxdark p-5">
+      <span class="text-lg font-semibold text-black dark:text-white">Backups</span>
+      <div class="mt-3 flex flex-col gap-2.5">
+        <%= if @last_backup_at do %>
+          <div class="flex items-start gap-2.5 rounded-md border border-green-200 bg-green-50 px-3 py-2.5 text-green-700 dark:border-green-500/20 dark:bg-green-500/10 dark:text-green-400">
+            <.icon name="hero-check" class="mt-0.5 h-4 w-4 shrink-0" />
+            <div class="text-sm">Last backup: {DisplayTime.date_to_local(@last_backup_at)}</div>
+          </div>
+        <% else %>
+          <div class="flex items-start gap-2.5 rounded-md border border-stroke bg-gray-2 px-3 py-2.5 text-body dark:border-strokedark dark:bg-meta-4">
+            <.icon name="hero-information-circle" class="mt-0.5 h-4 w-4 shrink-0 text-bodydark2" />
+            <div class="text-sm">No backups yet - the nightly backup will create the first one</div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  </div>
 </div>

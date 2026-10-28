@@ -46,76 +46,58 @@ defmodule Pinchflat.Pages.DownloadsProgressLive do
 
   def render(assigns) do
     ~H"""
-    <section>
-      <div class="mb-3 flex items-center justify-between gap-3">
-        <div class="flex min-w-0 items-center gap-2.5">
-          <h2 class="flex items-center gap-2 text-lg font-semibold text-black dark:text-white">
-            <span class="relative flex h-2 w-2">
-              <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-60"></span>
-              <span class="relative inline-flex h-2 w-2 rounded-full bg-red-500"></span>
-            </span>
-            Downloading
-          </h2>
-          <span class="shrink-0 text-xs text-bodydark2">live</span>
-        </div>
-      </div>
+    <div class="rounded-sm border shadow-default border-stroke dark:border-strokedark bg-white dark:bg-boxdark mt-4 p-5">
+      <span class="text-2xl font-medium mb-4 text-black dark:text-white">Downloading</span>
 
-      <div class="no-scrollbar -mb-2 flex gap-4 overflow-x-auto pb-2">
-        <div
-          :for={item <- @items}
-          class="w-72 shrink-0 rounded-xl border border-stroke bg-gray-2 p-3 dark:border-strokedark dark:bg-boxdark sm:w-80"
-        >
+      <div class="mt-2 divide-y divide-stroke dark:divide-strokedark">
+        <div :for={item <- @items} class="flex items-center gap-3 py-2.5">
           <% progress = Map.get(@progress, item.id) %>
           <% percent = progress && progress[:percent] %>
-          <div class="flex items-center gap-3">
-            <img
-              :if={thumbnail_src(item)}
-              src={thumbnail_src(item)}
-              alt=""
-              loading="lazy"
-              class="h-10 w-[70px] shrink-0 rounded-lg border border-stroke dark:border-strokedark object-cover"
-              onerror="this.classList.add('hidden')"
-            />
+          <img
+            :if={thumbnail_src(item)}
+            src={thumbnail_src(item)}
+            alt=""
+            loading="lazy"
+            class="h-9 w-16 shrink-0 rounded-md border border-stroke dark:border-strokedark object-cover"
+            onerror="this.classList.add('hidden')"
+          />
 
-            <div class="min-w-0 flex-1">
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center justify-between gap-2">
               <.link
                 href={~p"/sources/#{item.source_id}/media/#{item}"}
-                class="block truncate text-[13px] font-medium text-black dark:text-white hover:underline"
+                class="truncate text-sm font-medium text-black dark:text-white hover:underline"
               >
                 {item.title}
               </.link>
 
-              <div class="mt-0.5 flex items-center justify-between gap-2">
-                <span class="truncate text-xs text-bodydark2">{item.source.custom_name}</span>
+              <span :if={is_number(percent)} class="shrink-0 text-xs font-medium tabular-nums text-sky-400">
+                {percent}%
+              </span>
+            </div>
 
-                <span :if={is_number(percent)} class="shrink-0 text-xs font-medium tabular-nums text-sky-400">
-                  {percent}%
-                </span>
+            <div class="mt-1.5 h-1.5 w-full overflow-hidden rounded-full border border-sky-500/20 bg-sky-500/10">
+              <div
+                :if={is_number(percent)}
+                class="h-full rounded-full bg-sky-500 transition-width duration-300 ease-out"
+                style={"width: #{bar_width(percent)}%"}
+              >
               </div>
-            </div>
-          </div>
 
-          <div class="mt-2.5 h-1.5 w-full overflow-hidden rounded-full border border-sky-500/20 bg-sky-500/10">
+              <div :if={not is_number(percent)} class="h-full w-full animate-pulse rounded-full bg-sky-500/40"></div>
+            </div>
+
             <div
-              :if={is_number(percent)}
-              class="h-full rounded-full bg-sky-500 transition-width duration-300 ease-out"
-              style={"width: #{bar_width(percent)}%"}
+              :if={progress && (progress[:speed] || progress[:eta])}
+              class="mt-1 flex items-center gap-3 text-xs text-bodydark2"
             >
+              <span :if={progress && progress[:speed]}>{progress[:speed]}</span>
+              <span :if={progress && progress[:eta]}>ETA {progress[:eta]}</span>
             </div>
-
-            <div :if={not is_number(percent)} class="h-full w-full animate-pulse rounded-full bg-sky-500/40"></div>
-          </div>
-
-          <div
-            :if={progress && (progress[:speed] || progress[:eta])}
-            class="mt-1.5 flex items-center gap-3 text-xs text-bodydark2"
-          >
-            <span :if={progress && progress[:speed]}>{progress[:speed]}</span>
-            <span :if={progress && progress[:eta]}>ETA {progress[:eta]}</span>
           </div>
         </div>
       </div>
-    </section>
+    </div>
     """
   end
 

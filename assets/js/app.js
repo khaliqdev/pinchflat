@@ -76,11 +76,3 @@ liveSocket.connect()
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
 // >> liveSocket.disableLatencySim()
 window.liveSocket = liveSocket
-
-// YouTube-on-TV feel for the home shelves: when a card gains keyboard focus,
-// bring it smoothly into view so arrow-key/tab navigation reads like a TV
-// row cursor instead of scrolling the page sideways.
-document.addEventListener('focusin', (event) => {
-  const card = event.target.closest('[data-shelf-card]')
-  if (card) card.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' })
-})
