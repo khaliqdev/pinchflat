@@ -92,6 +92,16 @@ defmodule PinchflatWeb.MediaErrorControllerTest do
       assert page_ids_json |> Jason.decode!() |> Enum.sort() ==
                items |> Enum.map(& &1.id) |> Enum.sort()
     end
+
+    test "describes the retry batch as the oldest failures, matching the list ordering", %{conn: conn} do
+      media_item_fixture(%{title: "Broken Thing", last_error: "ERROR: something broke"})
+
+      conn = get(conn, ~p"/errors")
+      html = html_response(conn, 200)
+
+      assert html =~ "oldest 100 retryable failures"
+      refute html =~ "most recent"
+    end
   end
 
   describe "POST /errors/retry" do
@@ -110,6 +120,25 @@ defmodule PinchflatWeb.MediaErrorControllerTest do
       assert Repo.reload!(retryable).last_error == nil
       assert Repo.reload!(skipped).last_error == "boom"
       assert_enqueued(worker: MediaDownloadWorker, args: %{"id" => retryable.id})
+    end
+
+    test "reaches retryable failures newer than a full oldest batch of ignored items", %{conn: conn} do
+      # A full batch window of ignored failures can never clear, so retry
+      # eligibility must be applied before the cap or newer failures starve
+      Enum.each(1..100, fn i ->
+        media_item_fixture(%{title: "Ignored #{i}", last_error: "boom", prevent_download: true, media_filepath: nil})
+      end)
+
+      newer = media_item_fixture(%{title: "Newer retryable", last_error: "boom", media_filepath: nil})
+
+      conn = post(conn, ~p"/errors/retry")
+
+      assert redirected_to(conn) == "/errors"
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Retried 1 item(s)"
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "skipped 100"
+
+      assert Repo.reload!(newer).last_error == nil
+      assert_enqueued(worker: MediaDownloadWorker, args: %{"id" => newer.id})
     end
   end
 
@@ -195,6 +224,32 @@ defmodule PinchflatWeb.MediaErrorControllerTest do
       assert redirected_to(conn) == "/errors"
       refute Phoenix.Flash.get(conn.assigns.flash, :info)
       refute_enqueued(worker: MediaDownloadWorker)
+    end
+
+    test "reaches selected retryable items newer than a full oldest batch of ignored items", %{conn: conn} do
+      # The selected items sit beyond the oldest-100 window, which is pinned by
+      # ignored failures that never clear - eligibility must be applied before
+      # the cap for the selection to reach them
+      Enum.each(1..100, fn i ->
+        media_item_fixture(%{title: "Ignored #{i}", last_error: "boom", prevent_download: true, media_filepath: nil})
+      end)
+
+      newer_a = media_item_fixture(%{title: "Newer A", last_error: "boom", media_filepath: nil})
+      newer_b = media_item_fixture(%{title: "Newer B", last_error: "boom", media_filepath: nil})
+
+      conn =
+        post(conn, ~p"/errors/retry-selected", %{
+          "selected_ids" => Enum.map([newer_a, newer_b], fn item -> Integer.to_string(item.id) end)
+        })
+
+      assert redirected_to(conn) == "/errors"
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "Retried 2 item(s)"
+      assert Phoenix.Flash.get(conn.assigns.flash, :info) =~ "skipped 0"
+
+      assert Repo.reload!(newer_a).last_error == nil
+      assert Repo.reload!(newer_b).last_error == nil
+      assert_enqueued(worker: MediaDownloadWorker, args: %{"id" => newer_a.id})
+      assert_enqueued(worker: MediaDownloadWorker, args: %{"id" => newer_b.id})
     end
   end
 end

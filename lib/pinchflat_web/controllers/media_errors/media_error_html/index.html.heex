@@ -42,7 +42,7 @@
         method="post"
         data-confirm-dialog
         data-confirm-title="Retry errored items?"
-        data-confirm-message={"Re-attempt downloads for errored items #{if @source_id, do: "in this source", else: "across all sources"} that are still pending. Ignored items and already-downloaded items are skipped. Each run covers the most recent 100 failures."}
+        data-confirm-message={"Re-attempt downloads for errored items #{if @source_id, do: "in this source", else: "across all sources"} that are still pending. Ignored items and already-downloaded items are skipped. Each run covers the oldest 100 retryable failures."}
         class="rounded-md border border-primary px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-boxdark"
       >
         Retry Errored
