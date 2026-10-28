@@ -196,6 +196,51 @@ defmodule Pinchflat.YtDlp.MediaCollectionTest do
                MediaCollection.get_source_metadata(@channel_url, playlist_items: 1)
     end
 
+    test "merges the tab-expanded listings of a multi-document channel, deduped by entry id" do
+      # A multi-tab channel writes one expanded listing PER TAB (videos, shorts,
+      # live) plus the channel wrapper. Keeping only the largest listing would
+      # hide the media living in the other tabs - eg: a shorts-only profile
+      # scanning to ~0 because its shorts are in their own document
+      videos =
+        ~s({"id": "UCB123-videos", "playlist_count": 2, "entries": [{"id": "vid1"}, {"id": "vid2"}]})
+
+      shorts =
+        ~s({"id": "UCB123-shorts", "playlist_count": 1, "entries": [{"id": "vid1"}, {"id": "short1"}]})
+
+      wrapper =
+        ~s({"id": "UCB123", "playlist_count": 3, "entries": [{"_type": "playlist", "id": "UCB123-videos"}, {"_type": "playlist", "id": "UCB123-shorts"}]})
+
+      expect(YtDlpRunnerMock, :run, fn _url, :get_source_metadata, _opts, _ot, _addl_opts ->
+        {:ok, videos <> "\n" <> shorts <> "\n" <> wrapper}
+      end)
+
+      assert {:ok, merged} = MediaCollection.get_source_metadata(@channel_url, playlist_items: 1)
+
+      # per-tab counts summed (2 + 1); the wrapper contributes no media entries
+      assert merged["playlist_count"] == 3
+      # vid1 appears in both tabs but only once in the merged listing
+      assert Enum.map(merged["entries"], & &1["id"]) == ["vid1", "vid2", "short1"]
+    end
+
+    test "drops playlist-shaped entries (playlist _type or own entries) from the merged listing" do
+      listing =
+        ~s({"id": "UCB123-videos", "entries": [{"id": "vid1"}, {"_type": "playlist", "id": "UCB123", "url": "https://www.youtube.com/@test"}, {"id": "UCB123-nested", "entries": [{"id": "inner"}]}, {"id": "vid2"}]})
+
+      # The merge (and its playlist-entry dropping) only runs for
+      # multi-document output; the second doc is a channel wrapper, not a
+      # media listing, so the first doc is the only listing in the merge
+      expect(YtDlpRunnerMock, :run, fn _url, :get_source_metadata, _opts, _ot, _addl_opts ->
+        {:ok, listing <> "\n" <> ~s({"_type": "playlist", "id": "UCB123", "url": "https://www.youtube.com/@test"})}
+      end)
+
+      assert {:ok, merged} = MediaCollection.get_source_metadata(@channel_url, playlist_items: 1)
+
+      # no playlist_count anywhere: the combined count falls back to the
+      # merged listing's own media entries
+      assert merged["playlist_count"] == 2
+      assert Enum.map(merged["entries"], & &1["id"]) == ["vid1", "vid2"]
+    end
+
     test "skips an undecodable document and returns the best remaining one" do
       expect(YtDlpRunnerMock, :run, fn _url, :get_source_metadata, _opts, _ot, _addl_opts ->
         {:ok, ~s({"id": "vid1", "autonumber": 0}) <> "\n" <> "{\"broken\": "}

@@ -134,7 +134,10 @@ defmodule Pinchflat.Sources.SourceScanner do
   end
 
   # One listing call. The Task + `Task.yield/2` is the v1 hard timeout: on
-  # expiry the task is killed and the caller gets :timeout. Runs through
+  # expiry the task is killed and the caller gets :timeout. The task must be
+  # unlinked (async_nolink): a linked task would kill the request process the
+  # moment the yt-dlp runner raises, before the `{:exit, reason}` case below
+  # can turn the crash into a friendly scan-failed error. Runs through
   # CommandRunner via MediaCollection, so the scan opts into cookies the same
   # way an indexing operation would and inherits the global 429 cooldown
   # sleep - under an active cooldown a scan blocks for the remaining time,
@@ -143,8 +146,10 @@ defmodule Pinchflat.Sources.SourceScanner do
     command_opts = [:flat_playlist, playlist_items: @playlist_item_range]
     addl_opts = [use_cookies: Sources.use_cookies?(source, :indexing)]
 
+    # Unlinked under a supervisor: a crashing yt-dlp call must surface as the
+    # {:exit, reason} branch below, not kill the web request that spawned it
     task =
-      Task.async(fn ->
+      Task.Supervisor.async_nolink(Pinchflat.TaskSupervisor, fn ->
         MediaCollection.get_source_metadata(source.original_url, command_opts, addl_opts)
       end)
 
@@ -203,7 +208,7 @@ defmodule Pinchflat.Sources.SourceScanner do
   end
 
   # Each step reports how many entries it removed so the UI can render the
-  # breakdown ("-112 by title filter, -230 shorts...").
+  # breakdown ("-112 by title filter, -230 by profile format preferences...").
   defp run_step({entries, steps}, label, predicate) do
     kept = Enum.filter(entries, predicate)
     removed = length(entries) - length(kept)
@@ -214,23 +219,14 @@ defmodule Pinchflat.Sources.SourceScanner do
   # Applies the shorts/livestream CASE logic from
   # MediaQuery.format_matching_profile_preference (media_query.ex:58-80). The
   # two behaviours interact (:only + :only is a union, not an intersection),
-  # so this runs as one filter but reports separate breakdown steps - a
-  # doubly-removed entry is attributed to the shorts step.
+  # so this runs as one filter and reports one breakdown step - splitting the
+  # removals per kind would double-count entries removed by both kinds (or,
+  # with :include on one side, misattribute every removal to the other).
   defp run_profile_preference_step({entries, steps}, media_profile) do
     kept = filter_by_profile_preference(entries, media_profile)
     removed = length(entries) - length(kept)
 
-    shorts_removed = if media_profile.shorts_behaviour == :include, do: 0, else: removed
-    livestreams_removed = removed - shorts_removed
-
-    steps =
-      steps ++
-        [
-          %{label: "shorts", removed: shorts_removed},
-          %{label: "livestreams", removed: livestreams_removed}
-        ]
-
-    {kept, steps}
+    {kept, steps ++ [%{label: "profile format preferences", removed: removed}]}
   end
 
   defp filter_by_profile_preference(entries, media_profile) do

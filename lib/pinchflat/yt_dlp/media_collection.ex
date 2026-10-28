@@ -133,13 +133,13 @@ defmodule Pinchflat.YtDlp.MediaCollection do
   end
 
   # yt-dlp's --print-to-file APPENDS every template evaluation to the file. For
-  # a channel URL one run writes BOTH the tab-expanded listing AND the
-  # channel-wrapper playlist (whose entries are the channel's tabs), so the
-  # content is multiple whitespace-separated JSON documents and a plain decode
-  # fails with "unexpected byte" at the second document. Decode every top-level
-  # document and prefer the media-entry listing: the wrapper's entries are
-  # themselves playlists, while the expanded listing's entries are what a
-  # source actually indexes.
+  # a channel URL one run writes the tab-expanded listing of EVERY tab (videos,
+  # shorts, live) PLUS the channel-wrapper playlist (whose entries are the
+  # channel's tabs), so the content is multiple whitespace-separated JSON
+  # documents and a plain decode fails with "unexpected byte" at the second
+  # document. Decode every top-level document and merge the tab-expanded media
+  # listings into one: the wrapper's entries are themselves playlists, while
+  # the expanded listings' entries are what a source actually indexes.
   defp decode_output(output) do
     case Phoenix.json_library().decode(output) do
       {:ok, json} ->
@@ -151,7 +151,7 @@ defmodule Pinchflat.YtDlp.MediaCollection do
             {:error, %Jason.DecodeError{position: 0, data: output}}
 
           docs ->
-            {:ok, choose_playlist_doc(docs)}
+            {:ok, merge_playlist_docs(docs)}
         end
     end
   end
@@ -168,18 +168,59 @@ defmodule Pinchflat.YtDlp.MediaCollection do
   end
 
   # Of the documents carrying non-empty entries, skip channel wrappers (their
-  # entries are themselves playlists) and take the largest listing; with no
-  # such document, the last decoded document is the best available.
-  defp choose_playlist_doc(docs) do
-    case Enum.filter(docs, fn doc ->
-           case doc["entries"] do
-             [first | _] when is_map(first) -> first["_type"] != "playlist"
-             _ -> false
-           end
-         end) do
-      [] -> List.last(docs)
-      candidates -> Enum.max_by(candidates, fn doc -> length(doc["entries"] || []) end)
+  # entries are themselves playlists) and merge the rest into ONE listing -
+  # keeping only the largest tab listing would hide the media that lives in
+  # the other tabs (eg: a shorts-only profile scanning to ~0). Entries are
+  # deduped by id, and top-level fields come from the largest listing; with
+  # no media listing at all, the last decoded document is the best available.
+  defp merge_playlist_docs(docs) do
+    case Enum.filter(docs, &media_listing?/1) do
+      [] ->
+        List.last(docs)
+
+      listings ->
+        base = Enum.max_by(listings, fn doc -> length(doc["entries"] || []) end)
+
+        base
+        |> Map.put("entries", merged_media_entries(listings))
+        |> Map.put("playlist_count", combined_playlist_count(listings))
     end
+  end
+
+  defp media_listing?(doc) do
+    case doc["entries"] do
+      [first | _] when is_map(first) -> media_entry?(first)
+      _ -> false
+    end
+  end
+
+  # Media entries are flat video records. Playlist-shaped entries - channel
+  # wrappers and tabs - point at other playlists instead: they announce
+  # themselves with a "playlist" _type or carry their own "entries"
+  defp media_entry?(%{"_type" => "playlist"}), do: false
+  defp media_entry?(%{"entries" => _}), do: false
+  defp media_entry?(entry) when is_map(entry), do: true
+  defp media_entry?(_entry), do: false
+
+  # First occurrence wins - tabs rarely overlap, but one entry per video id
+  # mirrors what the source actually indexes
+  defp merged_media_entries(listings) do
+    listings
+    |> Enum.flat_map(fn doc -> doc["entries"] || [] end)
+    |> Enum.filter(&media_entry?/1)
+    |> Enum.uniq_by(& &1["id"])
+  end
+
+  # Each tab's playlist_count is its true listing size (unaffected by the
+  # playlist_items range), so the combined size is their sum - falling back
+  # to a listing's own media-entry count when it reports none
+  defp combined_playlist_count(listings) do
+    Enum.reduce(listings, 0, fn doc, total ->
+      case doc["playlist_count"] do
+        count when is_integer(count) -> total + count
+        _ -> total + length(Enum.filter(doc["entries"] || [], &media_entry?/1))
+      end
+    end)
   end
 
   defp top_level_document_ranges(output) do

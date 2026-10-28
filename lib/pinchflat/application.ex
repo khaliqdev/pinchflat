@@ -18,6 +18,9 @@ defmodule Pinchflat.Application do
       Pinchflat.PromEx,
       PinchflatWeb.Telemetry,
       Pinchflat.Repo,
+      # Supervises unlinked Task processes (eg. the source-preview scanner's
+      # yt-dlp call) so a crashing task can't take its spawner down with it
+      {Task.Supervisor, name: Pinchflat.TaskSupervisor},
       # Must be before startup tasks
       Pinchflat.Boot.PreJobStartupTasks,
       {Oban, Application.fetch_env!(:pinchflat, Oban)},

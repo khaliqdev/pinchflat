@@ -87,15 +87,14 @@ defmodule Pinchflat.Sources.SourceScannerTest do
       assert result.total_found == 6
       assert result.analyzed_entries == 6
       assert result.estimated_downloads == 6
-      # cutoff, title filter, shorts, livestreams, duration - no cap step
-      # without a download_count and no disabled step with downloads on
+      # cutoff, title filter, profile format preferences, duration - no cap
+      # step without a download_count and no disabled step with downloads on
       assert Enum.all?(result.breakdown, &(&1.removed == 0))
 
       assert Enum.map(result.breakdown, & &1.label) == [
                "download cutoff date",
                "title filter regex",
-               "shorts",
-               "livestreams",
+               "profile format preferences",
                "min/max duration"
              ]
     end
@@ -158,8 +157,7 @@ defmodule Pinchflat.Sources.SourceScannerTest do
       assert {:ok, result} = SourceScanner.scan(source)
 
       assert result.estimated_downloads == 5
-      assert removed_for(result, "shorts") == 1
-      assert removed_for(result, "livestreams") == 0
+      assert removed_for(result, "profile format preferences") == 1
     end
 
     test "removes livestreams when the profile excludes them" do
@@ -170,8 +168,7 @@ defmodule Pinchflat.Sources.SourceScannerTest do
       assert {:ok, result} = SourceScanner.scan(source)
 
       assert result.estimated_downloads == 5
-      assert removed_for(result, "shorts") == 0
-      assert removed_for(result, "livestreams") == 1
+      assert removed_for(result, "profile format preferences") == 1
     end
 
     test "keeps the union when shorts and livestreams are both :only" do
@@ -183,9 +180,8 @@ defmodule Pinchflat.Sources.SourceScannerTest do
 
       # only the short (vid2) and the stream VOD (vid3) survive
       assert result.estimated_downloads == 2
-      # doubly-removed entries are attributed to the shorts step
-      assert removed_for(result, "shorts") == 4
-      assert removed_for(result, "livestreams") == 0
+      # the union step counts each doubly-removed entry once
+      assert removed_for(result, "profile format preferences") == 4
     end
 
     test "removes both kinds when the profile excludes both" do
@@ -197,8 +193,7 @@ defmodule Pinchflat.Sources.SourceScannerTest do
 
       # vid1, vid4, vid5 and the flag-less vid6 survive
       assert result.estimated_downloads == 4
-      assert removed_for(result, "shorts") == 2
-      assert removed_for(result, "livestreams") == 0
+      assert removed_for(result, "profile format preferences") == 2
     end
 
     test "applies the minimum duration, failing duration-less entries" do
@@ -307,6 +302,21 @@ defmodule Pinchflat.Sources.SourceScannerTest do
       end)
 
       assert {:error, {:scan_failed, "could not parse yt-dlp output"}} = SourceScanner.scan(source)
+    end
+
+    test "returns a scan_failed error instead of dying when the yt-dlp call crashes" do
+      source = scan_source()
+
+      expect(YtDlpRunnerMock, :run, fn _url, :get_source_metadata, _opts, _ot, _addl_opts ->
+        raise "yt-dlp runner exploded"
+      end)
+
+      # The scan task must be unlinked: a LINKED task would kill this request
+      # process the moment the runner raises, before the crash can be shaped
+      # into the friendly scan-failed error
+      assert {:error, {:scan_failed, message}} = SourceScanner.scan(source)
+      assert message =~ "scan crashed"
+      assert message =~ "yt-dlp runner exploded"
     end
 
     test "rejects a regex Elixir's PCRE engine refuses (no yt-dlp traffic)" do
