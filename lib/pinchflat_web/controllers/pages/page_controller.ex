@@ -23,13 +23,18 @@ defmodule PinchflatWeb.Pages.PageController do
   end
 
   defp render_home_page(conn) do
-    downloaded_media_items = where(MediaQuery.new(), ^MediaQuery.downloaded())
+    downloading_items = Media.downloading_media_items()
+    recent_downloads = Media.recent_downloads(16)
     volume = DiskUtils.volume_stats(Application.get_env(:pinchflat, :media_directory))
-    media_item_count = Repo.aggregate(downloaded_media_items, :count, :id)
-    media_item_size = Repo.aggregate(downloaded_media_items, :sum, :media_size_bytes) || 0
 
+    media_item_count = downloaded_item_count()
+    media_item_size = downloaded_size_bytes()
     pending_count = Media.pending_media_count()
-    failed_count = Media.count_errored_media_items([])
+
+    # The hero leads with what's happening now (a running download), otherwise
+    # the newest completed download. Both have :source preloaded.
+    hero_downloading = Enum.find(downloading_items, & &1.media_id)
+    hero_item = hero_downloading || List.first(recent_downloads)
 
     # Pending disk need: average size of downloaded items times the pending
     # count. An estimate by nature - real sizes are only known to yt-dlp.
@@ -45,20 +50,50 @@ defmodule PinchflatWeb.Pages.PageController do
       media_free_bytes: volume && volume.free_bytes,
       media_total_bytes: volume && volume.total_bytes,
       pending_count: pending_count,
-      failed_count: failed_count,
+      failed_count: Media.count_errored_media_items([]),
       pending_disk_need: pending_disk_need,
-      downloading_count: Media.downloading_media_item_ids() |> Enum.count(),
-      recent_downloads: Media.recent_downloads(8),
-      sources_health: Media.sources_health(),
+      downloading_count: length(downloading_items),
+      hero_item: hero_item,
+      hero_is_downloading: not is_nil(hero_downloading) and hero_item.id == hero_downloading.id,
+      recent_downloads: recent_downloads,
+      source_shelves: source_shelves(),
       cookies_age_days: cookie_age_days(),
       cookies_present: cookies_file_present?(),
       last_backup_at: last_backup_at(),
-      rate_limited: Pinchflat.RateLimit.tripped?(),
-      rate_limit_seconds: Pinchflat.RateLimit.seconds_remaining(),
+      rate_limited: RateLimit.tripped?(),
+      rate_limit_seconds: RateLimit.seconds_remaining(),
       yt_dlp_version: Settings.get!(:yt_dlp_version),
       yt_dlp_auto_update: auto_update_enabled?()
     )
   end
+
+  defp downloaded_item_count do
+    MediaQuery.new()
+    |> where(^MediaQuery.downloaded())
+    |> Repo.aggregate(:count, :id)
+  end
+
+  defp downloaded_size_bytes do
+    MediaQuery.new()
+    |> where(^MediaQuery.downloaded())
+    |> Repo.aggregate(:sum, :media_size_bytes) || 0
+  end
+
+  # One shelf per source that has downloads, freshest source first (YouTube-TV
+  # rows are recency-ordered, not alphabetical)
+  defp source_shelves do
+    Media.sources_health()
+    |> Enum.map(fn health ->
+      latest = Media.latest_downloads_for_source(health.source, 12)
+
+      Map.put(health, :latest, latest)
+    end)
+    |> Enum.filter(&Enum.any?(&1.latest))
+    |> Enum.sort_by(&shelf_recency/1, {:desc, DateTime})
+  end
+
+  defp shelf_recency(%{latest: [newest | _]}), do: newest.media_downloaded_at || DateTime.from_unix!(0)
+  defp shelf_recency(%{latest: []}), do: DateTime.from_unix!(0)
 
   defp cookie_age_days do
     path = Path.join(Application.get_env(:pinchflat, :extras_directory), "cookies.txt")
@@ -77,19 +112,29 @@ defmodule PinchflatWeb.Pages.PageController do
     _ -> false
   end
 
+  # Non-raising on purpose: the backup dir can vanish or a backup can be
+  # pruned between ls and stat (the nightly job rotates); neither may take
+  # the home page down. Unreadable/absent entries are skipped.
   defp last_backup_at do
     backup_dir = Application.get_env(:pinchflat, :backup_directory)
 
-    if is_binary(backup_dir) && File.dir?(backup_dir) do
-      backup_dir
-      |> File.ls!()
+    with true <- is_binary(backup_dir),
+         {:ok, names} <- File.ls(backup_dir) do
+      names
       |> Enum.filter(&String.ends_with?(&1, ".db"))
-      |> Enum.map(fn name -> File.stat!(Path.join(backup_dir, name), time: :posix).mtime end)
+      |> Enum.flat_map(fn name ->
+        case File.stat(Path.join(backup_dir, name), time: :posix) do
+          {:ok, %{mtime: mtime}} -> [mtime]
+          _ -> []
+        end
+      end)
       |> Enum.max(fn -> nil end)
       |> case do
         nil -> nil
         mtime -> DateTime.from_unix!(mtime)
       end
+    else
+      _ -> nil
     end
   end
 

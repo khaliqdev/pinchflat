@@ -504,6 +504,39 @@ defmodule Pinchflat.MediaTest do
     end
   end
 
+  describe "latest_downloads_for_source/2" do
+    test "returns the source's newest downloaded items, completion order" do
+      source = source_fixture()
+      older = media_item_fixture(source_id: source.id, media_downloaded_at: ~U[2026-01-01 00:00:00Z])
+      newest = media_item_fixture(source_id: source.id, media_downloaded_at: ~U[2026-02-01 00:00:00Z])
+
+      ids = Media.latest_downloads_for_source(source, 10) |> Enum.map(& &1.id)
+      assert ids == [newest.id, older.id]
+    end
+
+    test "respects the limit" do
+      source = source_fixture()
+      _older = media_item_fixture(source_id: source.id, media_downloaded_at: ~U[2026-01-01 00:00:00Z])
+      newest = media_item_fixture(source_id: source.id, media_downloaded_at: ~U[2026-02-01 00:00:00Z])
+
+      assert [%MediaItem{id: id}] = Media.latest_downloads_for_source(source, 1)
+      assert id == newest.id
+    end
+
+    test "excludes other sources and undownloaded items" do
+      source = source_fixture()
+      other_source = source_fixture()
+
+      _other_source_item =
+        media_item_fixture(source_id: other_source.id, media_downloaded_at: ~U[2026-03-01 00:00:00Z])
+
+      _pending =
+        media_item_fixture(source_id: source.id, media_filepath: nil, media_downloaded_at: nil)
+
+      assert Media.latest_downloads_for_source(source, 10) == []
+    end
+  end
+
   describe "list_errored_media_items/1" do
     test "returns only media items with errors, oldest first (digest paging)" do
       errored_now = media_item_fixture(%{last_error: "boom now"})
@@ -532,6 +565,36 @@ defmodule Pinchflat.MediaTest do
 
       assert [%MediaItem{} = item] = Media.list_errored_media_items(source_id: source.id)
       assert item.source_id == source.id
+    end
+
+    test "retryable_only: true keeps ignored and already-downloaded items out of the batch" do
+      retryable = media_item_fixture(%{last_error: "boom", media_filepath: nil})
+      _ignored = media_item_fixture(%{last_error: "boom", prevent_download: true, media_filepath: nil})
+      _downloaded = media_item_fixture(%{last_error: "boom"})
+
+      assert [%MediaItem{} = item] = Media.list_errored_media_items(retryable_only: true)
+      assert item.id == retryable.id
+      # The unfiltered listing still shows every failure
+      assert length(Media.list_errored_media_items()) == 3
+    end
+
+    test "retryable_only applies before the limit so non-retryable items don't consume the batch window" do
+      ignored = media_item_fixture(%{last_error: "boom", prevent_download: true, media_filepath: nil})
+      retryable = media_item_fixture(%{last_error: "boom", media_filepath: nil})
+
+      Repo.update_all(
+        from(m in MediaItem, where: m.id == ^ignored.id),
+        set: [updated_at: DateTime.add(DateTime.utc_now(), -3600, :second)]
+      )
+
+      ignored = Repo.reload!(ignored)
+
+      assert [%{id: id}] = Media.list_errored_media_items(limit: 1, retryable_only: true)
+      assert id == retryable.id
+
+      # Without the flag, the same window is consumed by the ignored item
+      assert [%{id: id}] = Media.list_errored_media_items(limit: 1)
+      assert id == ignored.id
     end
   end
 

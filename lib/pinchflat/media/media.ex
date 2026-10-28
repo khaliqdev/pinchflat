@@ -220,6 +220,20 @@ defmodule Pinchflat.Media do
   end
 
   @doc """
+  The newest downloaded items for one source, completion order - one shelf of
+  the home page. Preloads :source so cards can render the source name.
+  """
+  def latest_downloads_for_source(source, limit) do
+    MediaQuery.new()
+    |> where(^MediaQuery.downloaded())
+    |> where(^MediaQuery.for_source(source))
+    |> order_by([mi], desc: mi.media_downloaded_at, desc: mi.id)
+    |> limit(^limit)
+    |> preload(:source)
+    |> Repo.all()
+  end
+
+  @doc """
   Per-source health for the dashboard: pending and failed counts alongside
   each source. Failed overlaps pending by design (same as the errors console).
   """
@@ -297,28 +311,31 @@ defmodule Pinchflat.Media do
 
   @doc """
   Lists errored media items, oldest first. Options: :source_id, :since,
-  :limit (default 100). Powers the errors console and the failure digest.
+  :limit (default 100), :retryable_only. Powers the errors console, the
+  errors-console retry actions, and the failure digest.
+
+  With :retryable_only, items the downloader wouldn't act on (ignored or
+  already-downloaded) are filtered in-query so they can't consume the :limit
+  ahead of retryable failures.
   """
   def list_errored_media_items(opts \\ []) do
     source_id = Keyword.get(opts, :source_id)
     since = Keyword.get(opts, :since)
     limit = Keyword.get(opts, :limit, 100)
+    retryable_only = Keyword.get(opts, :retryable_only, false)
 
     MediaQuery.new()
     |> MediaQuery.require_assoc(:source)
     |> where(^MediaQuery.errored())
     |> apply_source_filter(source_id)
     |> apply_since_filter(since)
+    |> apply_retryable_filter(retryable_only)
     |> order_by([mi], asc: mi.updated_at, asc: mi.id)
     |> limit(^limit)
     |> preload(:source)
     |> Repo.all()
   end
 
-  @doc """
-  Counts errored media items, same filters as `list_errored_media_items/1`
-  without the limit - the errors console shows "showing 100 of N".
-  """
   @doc """
   Lists media items for the read-only API. Options: :limit, :offset, :source_id.
   `state` accepts the API state atoms (pending/downloaded/etc).
@@ -373,11 +390,13 @@ defmodule Pinchflat.Media do
 
   def count_errored_media_items(opts \\ []) do
     source_id = Keyword.get(opts, :source_id)
+    retryable_only = Keyword.get(opts, :retryable_only, false)
 
     MediaQuery.new()
     |> MediaQuery.require_assoc(:source)
     |> where(^MediaQuery.errored())
     |> apply_source_filter(source_id)
+    |> apply_retryable_filter(retryable_only)
     |> Repo.aggregate(:count)
   end
 
@@ -405,6 +424,18 @@ defmodule Pinchflat.Media do
 
   defp apply_source_filter(query, nil), do: query
   defp apply_source_filter(query, source_id), do: where(query, [mi], mi.source_id == ^source_id)
+
+  # Retry eligibility = MediaQuery.pending(), the same predicate the retry
+  # actions used to apply per-item via pending_download_ids_for/1. Filtering
+  # in-query keeps ignored/already-downloaded items visible in the errors
+  # console without letting them consume the batch limit ahead of retryable ones.
+  defp apply_retryable_filter(query, false), do: query
+
+  defp apply_retryable_filter(query, true) do
+    query
+    |> MediaQuery.require_assoc(:media_profile)
+    |> where(^MediaQuery.pending())
+  end
 
   @doc """
   Gets a single media_item.
