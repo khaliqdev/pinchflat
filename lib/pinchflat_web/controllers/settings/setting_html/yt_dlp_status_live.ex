@@ -7,7 +7,9 @@ defmodule Pinchflat.Settings.YtDlpStatusLive do
   the HTTP client's 30s timeout) and assigns the result inline. Update-now
   enqueues the existing UpdateWorker (Oban, so the request never blocks)
   and polls the job until it completes - the worker records the resulting
-  version in Settings, which is what the poll compares.
+  version in Settings, which is what the poll compares. The "Update now"
+  button enqueues the job as manual, which bypasses the auto-update mode
+  gate, and a failed update is reported as a failure rather than success.
 
   The auto-update mode (nightly / boot / off) is read-only here: it comes
   from the container's YT_DLP_AUTO_UPDATE env var, which a web UI cannot
@@ -42,18 +44,15 @@ defmodule Pinchflat.Settings.YtDlpStatusLive do
     <div class="rounded-sm border border-stroke bg-white px-5 py-5 shadow-default dark:border-strokedark dark:bg-boxdark sm:px-7.5 mt-4">
       <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
         <h3 class="text-title-md2 font-bold text-black dark:text-white">yt-dlp</h3>
-        <span
-          :if={VersionCheck.update_available?(@current_version, @latest_version)}
-          class="rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400"
-        >
-          update available
-        </span>
-        <span
-          :if={@latest_version && !VersionCheck.update_available?(@current_version, @latest_version)}
-          class="rounded-md border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700 dark:border-green-500/20 dark:bg-green-500/10 dark:text-green-400"
-        >
-          up to date
-        </span>
+        <%= case VersionCheck.version_state(@current_version, @latest_version) do %>
+          <% :update_available -> %>
+            <span class={badge_classes(:update)}>update available</span>
+          <% :newer_installed -> %>
+            <span class={badge_classes(:update)}>newer than stable</span>
+          <% :up_to_date -> %>
+            <span class={badge_classes(:up_to_date)}>up to date</span>
+          <% _ -> %>
+        <% end %>
       </div>
 
       <dl class="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -130,7 +129,7 @@ defmodule Pinchflat.Settings.YtDlpStatusLive do
   end
 
   def handle_event("update", _params, socket) do
-    case UpdateWorker.kickoff() do
+    case UpdateWorker.kickoff(manual: true) do
       {:ok, %Oban.Job{id: job_id}} ->
         {:noreply,
          socket
@@ -173,7 +172,11 @@ defmodule Pinchflat.Settings.YtDlpStatusLive do
 
       %{state: state} when state in ["discarded", "cancelled", "retryable"] ->
         {:noreply,
-         assign(socket, updating: false, status: "Update job #{state} - see the logs for why.", status_kind: :error)}
+         assign(socket,
+           updating: false,
+           status: "Update failed (job #{state}) - see the logs for why.",
+           status_kind: :error
+         )}
 
       _still_running ->
         count = Map.get(socket.assigns, :poll_count, 0) + 1
@@ -220,5 +223,15 @@ defmodule Pinchflat.Settings.YtDlpStatusLive do
 
   defp version_check do
     Application.get_env(:pinchflat, :yt_dlp_version_check, VersionCheck)
+  end
+
+  # Badge classes live in a function, not module attributes: inside ~H,
+  # @-references resolve to socket assigns and would raise at render time
+  defp badge_classes(:update) do
+    "rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-400"
+  end
+
+  defp badge_classes(:up_to_date) do
+    "rounded-md border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700 dark:border-green-500/20 dark:bg-green-500/10 dark:text-green-400"
   end
 end

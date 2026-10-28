@@ -58,6 +58,19 @@ defmodule PinchflatWeb.Settings.YtDlpStatusLiveTest do
 
       assert render_click(view, :check) =~ "Check failed"
     end
+
+    test "a nightly install newer than stable shows the newer-than-stable badge", %{conn: conn} do
+      expect(HTTPClientMock, :get, fn _url, _headers, _opts ->
+        {:ok, ~s({"tag_name": "2026.10.21"})}
+      end)
+
+      Settings.set(yt_dlp_version: "2026.10.22.232815")
+
+      {:ok, view, _html} = live_isolated(conn, YtDlpStatusLive)
+
+      refute render_click(view, :check) =~ "update available"
+      assert render(view) =~ "newer than stable"
+    end
   end
 
   describe "handle_event update" do
@@ -67,6 +80,19 @@ defmodule PinchflatWeb.Settings.YtDlpStatusLiveTest do
       render_click(view, :update)
 
       assert render(view) =~ "Update queued"
+    end
+
+    test "enqueues the job as manual so it bypasses the auto-update gate", %{conn: conn} do
+      {:ok, view, _html} = live_isolated(conn, YtDlpStatusLive)
+
+      render_click(view, :update)
+
+      # The enqueued update job is the only fresh UpdateWorker row
+      jobs =
+        from(j in Oban.Job, where: j.worker == "Pinchflat.YtDlp.UpdateWorker")
+        |> Pinchflat.Repo.all()
+
+      assert [%Oban.Job{args: %{"manual" => true}}] = jobs
     end
 
     test "a completed job reports the new version", %{conn: conn} do
@@ -83,6 +109,21 @@ defmodule PinchflatWeb.Settings.YtDlpStatusLiveTest do
 
       assert render(view) =~ "Updated yt-dlp 2026.09.01"
       assert render(view) =~ "2026.10.21"
+    end
+
+    test "a failed job is not reported as a success", %{conn: conn} do
+      {:ok, view, _html} = live_isolated(conn, YtDlpStatusLive)
+      render_click(view, :update)
+
+      from(j in Oban.Job, where: j.worker == "Pinchflat.YtDlp.UpdateWorker")
+      |> Pinchflat.Repo.update_all(set: [state: "discarded"])
+
+      send(view.pid, :poll)
+
+      html = render(view)
+      refute html =~ "Updated yt-dlp"
+      refute html =~ "Updater finished"
+      assert html =~ "Update failed"
     end
   end
 end

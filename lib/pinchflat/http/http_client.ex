@@ -15,7 +15,8 @@ defmodule Pinchflat.HTTP.HTTPClient do
 
   NOTE: I can't really test this with Mox and I can't think of a way to test this
   that isn't ultimately redundant. I'm just going to leave it untested for now and
-  focus more on testing the consumers of this module.
+  focus more on testing the consumers of this module (the format_error/1 helper
+  below is unit-tested directly).
 
   Returns {:ok, String.t()} | {:error, String.t()}
   """
@@ -35,8 +36,21 @@ defmodule Pinchflat.HTTP.HTTPClient do
         {:error, "HTTP request failed with status code #{status_code}: #{reason_phrase}"}
 
       {:error, reason} ->
-        {:error, "HTTP request failed: #{reason}"}
+        {:error, "HTTP request failed: #{format_error(reason)}"}
     end
+  end
+
+  @doc """
+  Formats an :httpc error reason into a string without ever raising. :httpc reasons
+  are often tuples (e.g. `{:failed_connect, [...]}`) which can't be interpolated
+  directly, so they're inspected and clamped to a sane length.
+
+  Returns String.t()
+  """
+  def format_error(reason) do
+    reason
+    |> Kernel.inspect(limit: 50)
+    |> String.slice(0, 500)
   end
 
   defp parse_headers(headers) do
